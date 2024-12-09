@@ -43,14 +43,14 @@ export function activate(context: vscode.ExtensionContext) {
             ...(hasSelection ? [
                 "\n",
                 "---",
+                `File path: ${filePath}`,
+                `Workspace path: ${workspacePath}`,
+                "---",
                 "Selected Code:",
                 "```",
                 selectedText,
                 "```",
             ] : []),
-            "",
-            `File: ${filePath}`,
-            `Workspace: ${workspacePath}`
         ].join('\n');
 
         // Copy to clipboard and ensure it's complete
