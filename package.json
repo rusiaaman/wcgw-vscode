@@ -1,7 +1,7 @@
 {
     "name": "wcgw",
     "displayName": "WCGW",
-    "description": "Send code snippets to another application with helpful context",
+    "description": "Send code snippet and paths to Claude. Designed to work with wcgw mcp server.",
     "publisher": "AmanRusia",
     "repository": {
         "type": "git",
