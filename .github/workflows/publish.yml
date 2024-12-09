@@ -12,9 +12,9 @@ jobs:
       - uses: actions/checkout@v2
       
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: '16.x'
+          node-version: '18.x'
           registry-url: 'https://registry.npmjs.org/'
       
       - name: Install dependencies
@@ -24,9 +24,9 @@ jobs:
         run: npm run compile
         
       - name: Package Extension
-        run: npx vsce package
+        run: npx @vscode/vsce package
         
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish -p ${{ secrets.VSCE_PAT }}
+        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
