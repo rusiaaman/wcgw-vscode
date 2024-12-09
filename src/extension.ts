@@ -35,9 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
         const filePath = editor.document.uri.fsPath;
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 
-        // Create template text with the helpful text
-        const templateText = `${helpfulText}
-        
+        // Split content into first line and rest
+        const firstLine = helpfulText || "Here is the code context to analyse.";
+        const restOfText = `
 ---
 Selected Code:
 \`\`\`
@@ -47,9 +47,9 @@ ${selectedText}
 File: ${filePath}
 Workspace: ${workspacePath}`;
 
-        // Copy to clipboard and ensure it's complete
+        // Copy the rest of text to clipboard
         console.log('Writing to clipboard...');
-        await vscode.env.clipboard.writeText(templateText);
+        await vscode.env.clipboard.writeText(restOfText);
         
         // Give the system a moment to ensure clipboard is updated
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -59,31 +59,26 @@ Workspace: ${workspacePath}`;
         const config = vscode.workspace.getConfiguration('wcgw');
         const targetApp = config.get<string>('targetApplication', 'Notes');
 
-        // Activate the target application (macOS only)
+        // Activate the target application and type first line (macOS only)
         if (process.platform === 'darwin') {
             console.log(`Activating ${targetApp}...`);
-            exec(`osascript -e 'tell application "${targetApp}" to activate'`, (error) => {
+            exec(`osascript -e '
+                tell application "${targetApp}" to activate
+                delay 0.2
+                tell application "System Events"
+                    -- Type the first line character by character
+                    ${firstLine.split('').map(char => `keystroke "${char.replace(/["']/g, '\\"')}"`).join('\n                    ')}
+                    keystroke return
+                    delay 0.1
+                    -- Paste the rest
+                    keystroke "v" using {command down}
+                end tell'`, (error) => {
                 if (error) {
-                    vscode.window.showErrorMessage(`Failed to activate ${targetApp}: ${error.message}`);
-                    return;
+                    console.log('AppleScript error:', error);
+                    vscode.window.showErrorMessage(`Failed to paste in ${targetApp}: ${error.message}`);
+                } else {
+                    console.log('Text entry completed successfully');
                 }
-                
-                // Add a delay before pasting to ensure app switch is complete
-                setTimeout(() => {
-                    console.log('Attempting to paste...');
-                    exec(`osascript -e '
-                        tell application "System Events"
-                            delay 0.1
-                            keystroke "v" using {command down}
-                        end tell'`, (pasteError, stdout, stderr) => {
-                            if (pasteError) {
-                                console.log('Paste error:', pasteError);
-                                vscode.window.showErrorMessage(`Paste failed: ${pasteError.message}`);
-                            } else {
-                                console.log('Paste command completed');
-                            }
-                        });
-                }, 500);
             });
         } else {
             vscode.window.showErrorMessage('This feature is currently only supported on macOS');
