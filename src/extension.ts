@@ -15,10 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Get the selected text
         const selection = editor.selection;
         const selectedText = editor.document.getText(selection);
-        if (!selectedText) {
-            vscode.window.showErrorMessage('No text selected');
-            return;
-        }
+        const hasSelection = selectedText.trim().length > 0;
 
         // Show input box for helpful text
         const helpfulText = await vscode.window.showInputBox({
@@ -35,19 +32,28 @@ export function activate(context: vscode.ExtensionContext) {
         const filePath = editor.document.uri.fsPath;
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 
-        // Split content into first line and rest
-        const firstLine = helpfulText || "Here is the code context to analyse.";
-        const restOfText = `
----
-Selected Code:
-\`\`\`
-${selectedText}
-\`\`\`
+        // Split helpful text into first line and rest, or use default
+        const helpfulLines = helpfulText ? helpfulText.split('\n') : ["Here's the code context to analyze."];
+        const firstLine = helpfulLines[0].trim();
+        const otherHelpfulLines = helpfulLines.slice(1);
 
-File: ${filePath}
-Workspace: ${workspacePath}`;
+        // Construct the text that will be pasted
+        const restOfText = [
+            ...(otherHelpfulLines.length > 0 ? otherHelpfulLines : []),
+            ...(hasSelection ? [
+                "\n",
+                "---",
+                "Selected Code:",
+                "```",
+                selectedText,
+                "```",
+            ] : []),
+            "",
+            `File: ${filePath}`,
+            `Workspace: ${workspacePath}`
+        ].join('\n');
 
-        // Copy the rest of text to clipboard
+        // Copy to clipboard and ensure it's complete
         console.log('Writing to clipboard...');
         await vscode.env.clipboard.writeText(restOfText);
         
@@ -67,8 +73,7 @@ Workspace: ${workspacePath}`;
                 delay 0.2
                 tell application "System Events"
                     -- Type the first line character by character
-                    ${firstLine.split('').map(char => `keystroke "${char.replace(/["']/g, '\\"')}"`).join('\n                    ')}
-                    keystroke return
+                    ${firstLine.split('').map(char => `keystroke "${char.replace(/["']/g, '\\"')}"`).join('\n')}
                     delay 0.1
                     -- Paste the rest
                     keystroke "v" using {command down}

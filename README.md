@@ -1,52 +1,78 @@
 # WCGW (What Could Go Wrong)
 
-A VS Code extension that allows you to quickly send code snippets to another application with context information.
+A VS Code extension that helps you share code snippets and context with other applications, ideal for working with AI assistants, documentation tools, or code review platforms.
 
 ## Features
 
-- Select code and send it to another application (configurable)
-- Includes file path and workspace information
-- Automatically switches to the target application
-- Works on macOS
+- Share code snippets with custom context to any application
+- Add helpful instructions or descriptions for each share
+- Works both with and without code selection
+- Includes file and workspace context
+- Automatically switches to and focuses target application
+- Reliable text entry through keyboard simulation
 
-## Requirements
+## How to Use
 
-- macOS (for automatic application switching)
-- VS Code 1.85.0 or higher
+1. Optional: Select code you want to share
+2. Press `Cmd+/` (Mac) or run command "WCGW: Send to Application"
+3. Enter helpful text/instructions (or press Escape for default)
+4. Extension will:
+   - Switch to target application
+   - Type your instructions
+   - Include code (if selected) and context information
+
+## Example Output
+
+With code selected:
+```
+Your instructions or "Here's the code context to analyze."
+
+---
+Selected Code:
+```
+[your selected code]
+```
+
+File: /path/to/file
+Workspace: /path/to/workspace
+```
+
+Without code selected:
+```
+Your instructions or "Here's the code context to analyze."
+
+File: /path/to/file
+Workspace: /path/to/workspace
+```
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
-* `wcgw.targetApplication`: Specify the target application name (default: "Notes")
+* `wcgw.targetApplication`: Name of the application to send code to (default: "Claude")
 
-## How to Use
+## Requirements
 
-1. Select some code in your editor
-2. Use the keyboard shortcut `Cmd+Shift+W` or run the command "WCGW: Send to Application" from the command palette
-3. The extension will:
-   - Copy the selected code with context information to the clipboard
-   - Switch to your target application
-   - Automatically paste the content
+- macOS (required for automatic application switching)
+- VS Code 1.85.0 or higher
 
-## Template Format
+## Technical Notes
 
-The copied text follows this template:
-```
-Selected Code:
-[Your selected code here]
-
-File: [absolute file path]
-Workspace: [workspace path]
-```
+- Uses keyboard simulation for reliable text entry
+- Short delay between app switch and text entry for stability
+- Works with any application that accepts text input
 
 ## Known Issues
 
-- Currently only supports macOS due to the use of AppleScript for application switching
-- Relies on system clipboard for data transfer
+- macOS only currently
+- May not work with applications that have unusual text input handling
 
 ## Release Notes
 
 ### 0.0.1
 
-Initial release of WCGW
+Initial release with features:
+- Code sharing with custom instructions
+- Works with or without code selection
+- File and workspace context
+- Reliable text entry through keyboard simulation
