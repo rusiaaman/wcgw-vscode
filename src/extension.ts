@@ -20,12 +20,26 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        // Show input box for helpful text
+        const helpfulText = await vscode.window.showInputBox({
+            prompt: "Instructions or helpful text to include with the code snippet",
+            placeHolder: "E.g.: This function handles user authentication..."
+        });
+
+        if (helpfulText === undefined) {
+            // User cancelled the input
+            return;
+        }
+
         // Get file and workspace paths
         const filePath = editor.document.uri.fsPath;
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 
-        // Create template text
-        const templateText = `Selected Code:
+        // Create template text with the helpful text
+        const templateText = `${helpfulText}
+        
+---
+Selected Code:
 \`\`\`
 ${selectedText}
 \`\`\`
