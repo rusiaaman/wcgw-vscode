@@ -1,10 +1,11 @@
 {
     "name": "wcgw",
     "displayName": "WCGW",
-    "description": "Send code snippets to another application",
+    "description": "Send code snippets to another application with helpful context",
+    "publisher": "Aman Rusia",
     "repository": {
         "type": "git",
-        "url": "https://github.com/temp/wcgw"
+        "url": "https://github.com/rusiaaman/wcgw-vscode"
     },
     "version": "0.0.1",
     "engines": {
@@ -229,7 +230,8 @@
         "yargs-unparser": "^2.0.0",
         "yocto-queue": "^0.1.0"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC"
+    "keywords": ["snippets", "productivity", "code sharing", "collaboration"],
+    "author": "Aman Rusia",
+    "license": "MIT",
+    "icon": "images/icon.png"
 }
