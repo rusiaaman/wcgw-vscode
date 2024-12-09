@@ -12,7 +12,7 @@ https://github.com/rusiaaman/wcgw.git
 ## How to Use
 
 1. Optional: Select code you want to share
-2. Press `Cmd+/` (Mac) or run command "WCGW: Send to Application"
+2. Press `Cmd+'` (Mac) or run command "WCGW: Send to Application"
 3. Enter helpful text/instructions (or press Escape for default)
 4. Extension will:
    - Switch to Claude
