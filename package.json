@@ -2,7 +2,7 @@
     "name": "wcgw",
     "displayName": "WCGW",
     "description": "Send code snippets to another application with helpful context",
-    "publisher": "Aman Rusia",
+    "publisher": "AmanRusia",
     "repository": {
         "type": "git",
         "url": "https://github.com/rusiaaman/wcgw-vscode"
