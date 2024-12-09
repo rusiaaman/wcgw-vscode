@@ -7,7 +7,7 @@
         "type": "git",
         "url": "https://github.com/rusiaaman/wcgw-vscode"
     },
-    "version": "0.0.3",
+    "version": "0.0.4",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -38,8 +38,8 @@
         "keybindings": [
             {
                 "command": "wcgw.sendToApp",
-                "key": "cmd+/",
-                "mac": "cmd+/",
+                "key": "cmd+'",
+                "mac": "cmd+'",
                 "when": "editorTextFocus && !inDebugRepl && !terminalFocus"
             }
         ]
