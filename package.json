@@ -21,8 +21,12 @@
     "contributes": {
         "commands": [
             {
-                "command": "wcgw.sendToApp",
-                "title": "WCGW: Send to Application"
+                "command": "wcgw.sendEditorToApp",
+                "title": "WCGW: Send Editor Selection to Application"
+            },
+            {
+                "command": "wcgw.sendTerminalToApp",
+                "title": "WCGW: Send Terminal Selection to Application"
             }
         ],
         "configuration": {
@@ -37,10 +41,16 @@
         },
         "keybindings": [
             {
-                "command": "wcgw.sendToApp",
+                "command": "wcgw.sendEditorToApp",
                 "key": "cmd+'",
                 "mac": "cmd+'",
-                "when": "(editorTextFocus || terminalFocus) && !inDebugRepl"
+                "when": "editorTextFocus && !inDebugRepl"
+            },
+            {
+                "command": "wcgw.sendTerminalToApp",
+                "key": "cmd+'",
+                "mac": "cmd+'",
+                "when": "terminalFocus && !inDebugRepl"
             }
         ]
     },

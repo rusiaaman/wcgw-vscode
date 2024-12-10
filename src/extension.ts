@@ -9,13 +9,15 @@ interface SelectionContent {
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('WCGW extension is now active!');
-    let disposable = vscode.commands.registerCommand('wcgw.sendToApp', async () => {
-        console.log('WCGW command triggered');
-        
+
+    // Register editor command
+    let editorCommand = vscode.commands.registerCommand('wcgw.sendEditorToApp', async () => {
+        console.log('WCGW editor command triggered');
+
         try {
-            const { editorContent, terminalContent } = await getSelections();
-            if (!editorContent.text && !terminalContent.text) {
-                vscode.window.showErrorMessage('No selection found in editor or terminal');
+            const editorContent = await getEditorSelection();
+            if (!editorContent.text) {
+                vscode.window.showErrorMessage('No selection found in editor');
                 return;
             }
 
@@ -28,9 +30,43 @@ export function activate(context: vscode.ExtensionContext) {
                 return; // User cancelled
             }
 
-            const formattedContent = formatContent(
+            const formattedContent = formatEditorContent(
                 helpfulText,
                 editorContent,
+                getWorkspacePath()
+            );
+
+            await copyToTargetApp(formattedContent);
+
+        } catch (error: unknown) {
+            console.error('Error in sendEditorToApp:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
+        }
+    });
+
+    // Register terminal command
+    let terminalCommand = vscode.commands.registerCommand('wcgw.sendTerminalToApp', async () => {
+        console.log('WCGW terminal command triggered');
+
+        try {
+            const terminalContent = await getTerminalSelection();
+            if (!terminalContent.text) {
+                vscode.window.showErrorMessage('No selection found in terminal');
+                return;
+            }
+
+            const helpfulText = await vscode.window.showInputBox({
+                prompt: "Instructions or helpful text to include with the terminal output",
+                placeHolder: "E.g.: This is the output of the build process..."
+            });
+
+            if (helpfulText === undefined) {
+                return; // User cancelled
+            }
+
+            const formattedContent = formatTerminalContent(
+                helpfulText,
                 terminalContent,
                 getWorkspacePath()
             );
@@ -38,23 +74,13 @@ export function activate(context: vscode.ExtensionContext) {
             await copyToTargetApp(formattedContent);
 
         } catch (error: unknown) {
-            console.error('Error in sendToApp:', error);
+            console.error('Error in sendTerminalToApp:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
             vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
         }
     });
 
-    context.subscriptions.push(disposable);
-}
-
-async function getSelections(): Promise<{ 
-    editorContent: SelectionContent; 
-    terminalContent: SelectionContent; 
-}> {
-    const editorContent = await getEditorSelection();
-    const terminalContent = await getTerminalSelection();
-    
-    return { editorContent, terminalContent };
+    context.subscriptions.push(editorCommand, terminalCommand);
 }
 
 async function getEditorSelection(): Promise<SelectionContent> {
@@ -109,9 +135,43 @@ async function getTerminalSelection(): Promise<SelectionContent> {
     }
 }
 
-function formatContent(
+function formatEditorContent(
     helpfulText: string,
     editorContent: SelectionContent,
+    workspacePath: string
+): { firstLine: string; restOfText: string } {
+    const helpfulLines = helpfulText.split('\n');
+    const firstLine = helpfulLines[0].trim();
+    const otherHelpfulLines = helpfulLines.slice(1);
+
+    let contentBlocks: string[] = [];
+
+    // Add additional helpful text if it exists
+    if (otherHelpfulLines.length > 0) {
+        contentBlocks.push(otherHelpfulLines.join('\n'));
+    }
+
+    // Add separator and workspace info
+    contentBlocks.push('\n---');
+    contentBlocks.push(`Workspace path: ${workspacePath}`);
+    contentBlocks.push('---');
+
+    // Add file path and editor content
+    contentBlocks.push(`File path: ${editorContent.path}`);
+    contentBlocks.push('---');
+    contentBlocks.push('Selected code:');
+    contentBlocks.push('```');
+    contentBlocks.push(editorContent.text);
+    contentBlocks.push('```');
+
+    return {
+        firstLine,
+        restOfText: contentBlocks.join('\n')
+    };
+}
+
+function formatTerminalContent(
+    helpfulText: string,
     terminalContent: SelectionContent,
     workspacePath: string
 ): { firstLine: string; restOfText: string } {
@@ -120,50 +180,22 @@ function formatContent(
     const otherHelpfulLines = helpfulLines.slice(1);
 
     let contentBlocks: string[] = [];
-    
+
     // Add additional helpful text if it exists
     if (otherHelpfulLines.length > 0) {
         contentBlocks.push(otherHelpfulLines.join('\n'));
     }
 
-    // Add separator
+    // Add separator and workspace info
     contentBlocks.push('\n---');
+    contentBlocks.push(`Workspace path: ${workspacePath}`);
+    contentBlocks.push('---');
 
-    // Always add workspace path at the start if any content exists
-    if (editorContent.text || terminalContent.text) {
-        contentBlocks.push(`Workspace path: ${workspacePath}`);
-        contentBlocks.push('---');
-    }
-
-    // Handle different combinations of content
-    if (editorContent.text && !terminalContent.text) {
-        // Only editor content
-        contentBlocks.push(`File path: ${editorContent.path}`);
-        contentBlocks.push('---');
-        contentBlocks.push('Editor selection:');
-        contentBlocks.push('```');
-        contentBlocks.push(editorContent.text);
-        contentBlocks.push('```');
-    } else if (!editorContent.text && terminalContent.text) {
-        // Only terminal content
-        contentBlocks.push('Terminal selection:');
-        contentBlocks.push('```');
-        contentBlocks.push(terminalContent.text);
-        contentBlocks.push('```');
-    } else if (editorContent.text && terminalContent.text) {
-        // Both editor and terminal content
-        contentBlocks.push(`File path: ${editorContent.path}`);
-        contentBlocks.push('---');
-        contentBlocks.push('Editor selection:');
-        contentBlocks.push('```');
-        contentBlocks.push(editorContent.text);
-        contentBlocks.push('```');
-        contentBlocks.push('---');
-        contentBlocks.push('Terminal selection:');
-        contentBlocks.push('```');
-        contentBlocks.push(terminalContent.text);
-        contentBlocks.push('```');
-    }
+    // Add terminal content
+    contentBlocks.push('Terminal output:');
+    contentBlocks.push('```');
+    contentBlocks.push(terminalContent.text);
+    contentBlocks.push('```');
 
     return {
         firstLine,
