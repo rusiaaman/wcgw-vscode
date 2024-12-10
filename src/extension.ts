@@ -193,7 +193,27 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
     async function getRelevantFiles(): Promise<string> {
-        const files = ['package.json', 'pyproject.toml', 'README.md']; 
+        const files = [
+            // Core project files
+            'README.md',             // Project overview and documentation
+            'README.txt',            // Alternative README format
+            'README',                // No extension README
+            'package.json',          // Node.js/JavaScript project manifest
+            'pyproject.toml',        // Python project configuration
+            'Cargo.toml',            // Rust project manifest
+            'go.mod',                // Go project manifest
+            'pom.xml',               // Java Maven project
+            'build.gradle',          // Java/Kotlin Gradle project
+            'composer.json',         // PHP project manifest
+            'Gemfile',               // Ruby project dependencies
+            'mix.exs',               // Elixir project configuration
+            'Package.swift',         // Swift package manifest
+            'pubspec.yaml',          // Dart/Flutter project manifest
+            'CMakeLists.txt',        // C/C++ project configuration
+            'Makefile',              // Generic build configuration
+            'setup.py',              // Python setup configuration (legacy)
+            'index.html'             // Web project entrypoint
+        ]; 
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
         if (!workspaceRoot) return '';
 
@@ -235,7 +255,7 @@ export function activate(context: vscode.ExtensionContext) {
         blocks.push('Workspace structure:');
         blocks.push(workspaceStructure);
         blocks.push('---');
-        blocks.push('Relevant files:');
+        blocks.push('Frequently asked for files:');
         blocks.push(relevantFiles); // Already formatted with file paths and content
         blocks.push('---');
         
