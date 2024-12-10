@@ -6,12 +6,15 @@
             "type": "extensionHost",
             "request": "launch",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}"
+                "--disable-extensions",
+                "--extensionDevelopmentPath=/Users/arusia/workspace-111",
+                "${workspaceFolder}"  // Add this line
             ],
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
             ],
-            "preLaunchTask": "npm: compile"
+            "preLaunchTask": "npm: compile",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

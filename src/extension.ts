@@ -16,10 +16,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         try {
             const editorContent = await getEditorSelection();
-            if (!editorContent.text) {
-                vscode.window.showErrorMessage('No selection found in editor');
-                return;
-            }
 
             const helpfulText = await vscode.window.showInputBox({
                 prompt: "Instructions or helpful text to include with the code snippet",
@@ -51,10 +47,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         try {
             const terminalContent = await getTerminalSelection();
-            if (!terminalContent.text) {
-                vscode.window.showErrorMessage('No selection found in terminal');
-                return;
-            }
 
             const helpfulText = await vscode.window.showInputBox({
                 prompt: "Instructions or helpful text to include with the terminal output",
@@ -80,7 +72,93 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(editorCommand, terminalCommand);
+    const fullContextCommand = vscode.commands.registerCommand('wcgw.copyWithFullContext', async () => {
+        console.log('WCGW full context command triggered');
+
+        try {
+            const editorContent = await getEditorSelection();
+            if (!editorContent.text) {
+                vscode.window.showErrorMessage('No selection found in editor');
+                return;
+            }
+
+            const workspaceStructure = await getWorkspaceStructure();
+            const relevantFiles = await getRelevantFiles();
+
+            const contextContent = formatFullContextContent(
+                editorContent,
+                workspaceStructure,
+                relevantFiles
+            );
+
+            await vscode.env.clipboard.writeText(contextContent);
+            vscode.window.showInformationMessage('Context copied to clipboard!');
+
+        } catch (error: unknown) {
+            console.error('Error in copyWithFullContext:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
+        }
+    });
+
+    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand);
+
+    async function getWorkspaceStructure(): Promise<string> {
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders || folders.length === 0) {
+            return '';
+        }
+        return execCommand('find . -type f | grep -vE "(node_modules|\.git|venv)"', folders[0].uri.fsPath);
+    }
+
+    async function getRelevantFiles(): Promise<string[]> {
+        const files = ['package.json', 'pyproject.toml', 'README.md']; // Add more as needed
+        return files.filter(async (file) => {
+            const uri = vscode.workspace.workspaceFolders?.[0]?.uri ? 
+                vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, file) : null;
+            if (!uri) return false;
+            try {
+                await vscode.workspace.fs.stat(uri);
+                return true;
+            } catch {
+                return false;
+            }
+        });
+    }
+
+    function formatFullContextContent(
+        editorContent: SelectionContent,
+        workspaceStructure: string,
+        relevantFiles: string[]
+    ): string {
+        const blocks: string[] = [
+            '---',
+            'Selected code:',
+            '```',
+            editorContent.text,
+            '```',
+            '---',
+            'Workspace structure:',
+            workspaceStructure,
+            '---',
+            'Relevant files:',
+            relevantFiles.join('\n'),
+            '---'
+        ];
+        return blocks.join('\n');
+    }
+
+    async function execCommand(cmd: string, cwd: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            exec(cmd, { cwd }, (error, stdout) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(stdout.trim());
+                }
+            });
+        });
+    }
 }
 
 async function getEditorSelection(): Promise<SelectionContent> {
