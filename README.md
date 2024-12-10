@@ -23,7 +23,7 @@ https://github.com/rusiaaman/wcgw.git
 
 ### For Terminal Output
 1. Select text in the terminal
-2. Press `Cmd+Shift+'` (Mac) or run command "WCGW: Send Terminal Selection to Application"
+2. Press `Cmd+'` (Mac) or run command "WCGW: Send Terminal Selection to Application"
 3. Enter helpful text/instructions (or press Escape for default)
 4. Extension will:
    - Switch to Claude
