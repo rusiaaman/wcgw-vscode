@@ -7,7 +7,7 @@
         "type": "git",
         "url": "https://github.com/rusiaaman/wcgw-vscode"
     },
-    "version": "0.0.5",
+    "version": "0.1.0",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -21,8 +21,12 @@
     "contributes": {
         "commands": [
             {
-                "command": "wcgw.sendToApp",
-                "title": "WCGW: Send to Application"
+                "command": "wcgw.sendEditorToApp",
+                "title": "WCGW: Send Editor Selection to Application"
+            },
+            {
+                "command": "wcgw.sendTerminalToApp",
+                "title": "WCGW: Send Terminal Selection to Application"
             }
         ],
         "configuration": {
@@ -37,10 +41,16 @@
         },
         "keybindings": [
             {
-                "command": "wcgw.sendToApp",
+                "command": "wcgw.sendEditorToApp",
                 "key": "cmd+'",
                 "mac": "cmd+'",
-                "when": "editorTextFocus && !inDebugRepl && !terminalFocus"
+                "when": "editorTextFocus && !inDebugRepl"
+            },
+            {
+                "command": "wcgw.sendTerminalToApp",
+                "key": "cmd+'",
+                "mac": "cmd+'",
+                "when": "terminalFocus && !inDebugRepl"
             }
         ]
     },
