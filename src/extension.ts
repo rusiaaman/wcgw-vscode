@@ -15,7 +15,12 @@ export function activate(context: vscode.ExtensionContext) {
         const terminal = vscode.window.activeTerminal;
         const inTerminal = terminal && !editor;
         
-        if (terminal) {
+        if (editor) {
+            const selection = editor.selection;
+            selectedText = editor.document.getText(selection);
+            hasSelection = selectedText.trim().length > 0;
+            filePath = editor.document.uri.fsPath;
+        } else if (terminal && terminal.exitStatus === undefined) {  // Check if terminal is still active
             try {
                 // For terminal, we need to:
                 // 1. Store current clipboard
@@ -49,11 +54,6 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage('Failed to get terminal content');
                 return;
             }
-        } else if (editor) {
-            const selection = editor.selection;
-            selectedText = editor.document.getText(selection);
-            hasSelection = selectedText.trim().length > 0;
-            filePath = editor.document.uri.fsPath;
         } else {
             vscode.window.showErrorMessage('No active editor or terminal found');
             return;
