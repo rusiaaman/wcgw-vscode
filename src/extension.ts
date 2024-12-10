@@ -6,16 +6,39 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('WCGW extension is now active!');
     let disposable = vscode.commands.registerCommand('wcgw.sendToApp', async () => {
         console.log('WCGW command triggered');
+        // Try to get selection from either editor or terminal
+        let selectedText = '';
+        let hasSelection = false;
+        let filePath = '';
+        
         const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage('No active editor found');
+        const terminal = vscode.window.activeTerminal;
+        
+        if (editor) {
+            // Get selection from editor
+            const selection = editor.selection;
+            selectedText = editor.document.getText(selection);
+            hasSelection = selectedText.trim().length > 0;
+            filePath = editor.document.uri.fsPath;
+        } else if (terminal) {
+            try {
+                // Get selection from terminal through system clipboard
+                const previousClipboard = await vscode.env.clipboard.readText();
+                await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+                await new Promise(resolve => setTimeout(resolve, 100)); // Wait for clipboard
+                selectedText = await vscode.env.clipboard.readText();
+                await vscode.env.clipboard.writeText(previousClipboard); // Restore clipboard
+                hasSelection = selectedText.trim().length > 0;
+                filePath = 'Terminal';
+            } catch (error) {
+                console.error('Failed to get terminal selection:', error);
+                vscode.window.showErrorMessage('Failed to get terminal selection');
+                return;
+            }
+        } else {
+            vscode.window.showErrorMessage('No active editor or terminal found');
             return;
         }
-
-        // Get the selected text
-        const selection = editor.selection;
-        const selectedText = editor.document.getText(selection);
-        const hasSelection = selectedText.trim().length > 0;
 
         // Show input box for helpful text
         const helpfulText = await vscode.window.showInputBox({
@@ -28,8 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Get file and workspace paths
-        const filePath = editor.document.uri.fsPath;
+        // Get workspace path
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
 
         // Split helpful text into first line and rest, or use default
