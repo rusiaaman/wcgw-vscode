@@ -40,7 +40,7 @@
                 "command": "wcgw.sendToApp",
                 "key": "cmd+'",
                 "mac": "cmd+'",
-                "when": "editorTextFocus && !inDebugRepl && !terminalFocus"
+                "when": "(editorTextFocus || terminalFocus) && !inDebugRepl"
             }
         ]
     },
