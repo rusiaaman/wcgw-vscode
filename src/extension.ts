@@ -2,163 +2,212 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import * as path from 'path';
 
+interface SelectionContent {
+    text: string;
+    path?: string;
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('WCGW extension is now active!');
     let disposable = vscode.commands.registerCommand('wcgw.sendToApp', async () => {
         console.log('WCGW command triggered');
-        // Store selections from both editor and terminal before showing prompt
-        let editorText = '';
-        let editorPath = '';
-        let terminalText = '';
-        let hasSelection = false;
         
-        const editor = vscode.window.activeTextEditor;
-        const terminal = vscode.window.activeTerminal;
-
-        // Get editor selection if it exists
-        if (editor) {
-            const selection = editor.selection;
-            editorText = editor.document.getText(selection);
-            editorPath = editor.document.uri.fsPath;
-        }
-
-        // Get terminal selection/content if it exists
-        if (terminal) {
-            try {
-                // For terminal, we need to:
-                // 1. Store current clipboard
-                // 2. Copy selection (if any)
-                // 3. Get clipboard content
-                // 4. Restore original clipboard
-                const previousClipboard = await vscode.env.clipboard.readText();
-                
-                // Try to get selection first
-                await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
-                await new Promise(resolve => setTimeout(resolve, 200)); // Give more time for clipboard
-                let clipText = await vscode.env.clipboard.readText();
-                
-                // If no selection, try to get current line/view
-                if (!clipText.trim()) {
-                    await vscode.commands.executeCommand('workbench.action.terminal.selectAll');
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    clipText = await vscode.env.clipboard.readText();
-                    // Clear selection
-                    await vscode.commands.executeCommand('workbench.action.terminal.clearSelection');
-                }
-                
-                // Restore original clipboard
-                await vscode.env.clipboard.writeText(previousClipboard);
-                terminalText = clipText.trim();
-            } catch (error) {
-                console.error('Failed to get terminal content:', error);
-                vscode.window.showErrorMessage('Failed to get terminal content');
+        try {
+            const { editorContent, terminalContent } = await getSelections();
+            if (!editorContent.text && !terminalContent.text) {
+                vscode.window.showErrorMessage('No selection found in editor or terminal');
                 return;
             }
-        }
 
-        // If no content from either source, show error
-        if (!editorText.trim() && !terminalText) {
-            vscode.window.showErrorMessage('No selection found in editor or terminal');
-            return;
-        }
-
-        // Set hasSelection and determine which content to use
-        hasSelection = true;
-        let selectedText = '';
-        let filePath = '';
-
-        // If terminal text exists, use it
-        if (terminalText) {
-            selectedText = terminalText;
-            filePath = 'Terminal';
-        }
-        // If terminal text doesn't exist but editor text does, use editor
-        else if (editorText.trim()) {
-            selectedText = editorText;
-            filePath = editorPath;
-        }
-
-        // If both exist, combine them
-        if (terminalText && editorText.trim()) {
-            selectedText = `Terminal selection:\n${terminalText}\n\nEditor selection:\n${editorText}`;
-            filePath = `Terminal and ${editorPath}`;
-        }
-
-        // Show input box for helpful text
-        const helpfulText = await vscode.window.showInputBox({
-            prompt: "Instructions or helpful text to include with the code snippet",
-            placeHolder: "E.g.: This function handles user authentication..."
-        });
-
-        if (helpfulText === undefined) {
-            // User cancelled the input
-            return;
-        }
-
-        // Get workspace path
-        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-
-        // Split helpful text into first line and rest, or use default
-        const helpfulLines = helpfulText ? helpfulText.split('\n') : ["Here's the code context to analyze."];
-        const firstLine = helpfulLines[0].trim();
-        const otherHelpfulLines = helpfulLines.slice(1);
-
-        // Construct the text that will be pasted
-        const restOfText = [
-            ...(otherHelpfulLines.length > 0 ? otherHelpfulLines : []),
-            ...(hasSelection ? [
-                "\n",
-                "---",
-                `File path: ${filePath}`,
-                `Workspace path: ${workspacePath}`,
-                "---",
-                "Selected Code:",
-                "```",
-                selectedText,
-                "```",
-            ] : []),
-        ].join('\n');
-
-        // Copy to clipboard and ensure it's complete
-        console.log('Writing to clipboard...');
-        await vscode.env.clipboard.writeText(restOfText);
-        
-        // Give the system a moment to ensure clipboard is updated
-        await new Promise(resolve => setTimeout(resolve, 100));
-        console.log('Clipboard write complete');
-
-        // Get target app from configuration
-        const config = vscode.workspace.getConfiguration('wcgw');
-        const targetApp = config.get<string>('targetApplication', 'Notes');
-
-        // Activate the target application and type first line (macOS only)
-        if (process.platform === 'darwin') {
-            console.log(`Activating ${targetApp}...`);
-            exec(`osascript -e '
-                tell application "${targetApp}" to activate
-                delay 0.2
-                tell application "System Events"
-                    -- Type the first line character by character
-                    ${firstLine.split('').map(char => `keystroke "${char.replace(/["']/g, '\\"')}"`).join('\n')}
-                    delay 0.1
-                    -- Paste the rest
-                    keystroke "v" using {command down}
-                end tell'`, (error) => {
-                if (error) {
-                    console.log('AppleScript error:', error);
-                    vscode.window.showErrorMessage(`Failed to paste in ${targetApp}: ${error.message}`);
-                } else {
-                    console.log('Text entry completed successfully');
-                }
+            const helpfulText = await vscode.window.showInputBox({
+                prompt: "Instructions or helpful text to include with the code snippet",
+                placeHolder: "E.g.: This function handles user authentication..."
             });
-        } else {
-            vscode.window.showErrorMessage('This feature is currently only supported on macOS');
+
+            if (helpfulText === undefined) {
+                return; // User cancelled
+            }
+
+            const formattedContent = formatContent(
+                helpfulText,
+                editorContent,
+                terminalContent,
+                getWorkspacePath()
+            );
+
+            await copyToTargetApp(formattedContent);
+
+        } catch (error: unknown) {
+            console.error('Error in sendToApp:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
         }
     });
 
     context.subscriptions.push(disposable);
+}
+
+async function getSelections(): Promise<{ 
+    editorContent: SelectionContent; 
+    terminalContent: SelectionContent; 
+}> {
+    const editorContent = await getEditorSelection();
+    const terminalContent = await getTerminalSelection();
+    
+    return { editorContent, terminalContent };
+}
+
+async function getEditorSelection(): Promise<SelectionContent> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return { text: '' };
+    }
+
+    const selection = editor.selection;
+    return {
+        text: editor.document.getText(selection).trim(),
+        path: editor.document.uri.fsPath
+    };
+}
+
+async function getTerminalSelection(): Promise<SelectionContent> {
+    const terminal = vscode.window.activeTerminal;
+    if (!terminal) {
+        return { text: '' };
+    }
+
+    try {
+        // Force focus on terminal first
+        terminal.show(false); // false means don't take focus
+        await sleep(100);
+
+        // Save current clipboard
+        const originalClipboard = await vscode.env.clipboard.readText();
+        let terminalText = '';
+
+        // Try to get existing selection
+        await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+        await sleep(100);
+        terminalText = await vscode.env.clipboard.readText();
+
+        // Don't try to get full content if we have a selection
+        if (terminalText && terminalText.trim() && terminalText.trim() !== originalClipboard.trim()) {
+            // Restore original clipboard
+            await vscode.env.clipboard.writeText(originalClipboard);
+            return {
+                text: terminalText.trim(),
+                path: 'Terminal'
+            };
+        }
+
+        // If we're here, there was no selection, so restore clipboard
+        await vscode.env.clipboard.writeText(originalClipboard);
+        return { text: '' };
+    } catch (error) {
+        console.error('Failed to get terminal content:', error);
+        throw new Error('Failed to get terminal content');
+    }
+}
+
+function formatContent(
+    helpfulText: string,
+    editorContent: SelectionContent,
+    terminalContent: SelectionContent,
+    workspacePath: string
+): { firstLine: string; restOfText: string } {
+    const helpfulLines = helpfulText.split('\n');
+    const firstLine = helpfulLines[0].trim();
+    const otherHelpfulLines = helpfulLines.slice(1);
+
+    let contentBlocks: string[] = [];
+    
+    // Add additional helpful text if it exists
+    if (otherHelpfulLines.length > 0) {
+        contentBlocks.push(otherHelpfulLines.join('\n'));
+    }
+
+    // Add separator
+    contentBlocks.push('\n---');
+
+    // Add file paths
+    if (editorContent.text && terminalContent.text) {
+        contentBlocks.push(`File path: Terminal and ${editorContent.path}`);
+    } else if (editorContent.text) {
+        contentBlocks.push(`File path: ${editorContent.path}`);
+    } else if (terminalContent.text) {
+        contentBlocks.push('File path: Terminal');
+    }
+
+    contentBlocks.push(`Workspace path: ${workspacePath}`);
+    contentBlocks.push('---');
+    contentBlocks.push('Selected Code:');
+    contentBlocks.push('```');
+
+    // Add content blocks
+    if (terminalContent.text && editorContent.text) {
+        contentBlocks.push(
+            'Terminal selection:',
+            terminalContent.text,
+            '\nEditor selection:',
+            editorContent.text
+        );
+    } else if (editorContent.text) {
+        contentBlocks.push(editorContent.text);
+    } else if (terminalContent.text) {
+        contentBlocks.push(terminalContent.text);
+    }
+
+    contentBlocks.push('```');
+
+    return {
+        firstLine,
+        restOfText: contentBlocks.join('\n')
+    };
+}
+
+function getWorkspacePath(): string {
+    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+}
+
+async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; restOfText: string }) {
+    console.log('Writing to clipboard...');
+    await vscode.env.clipboard.writeText(restOfText);
+    await sleep(100);
+    console.log('Clipboard write complete');
+
+    const config = vscode.workspace.getConfiguration('wcgw');
+    const targetApp = config.get<string>('targetApplication', 'Notes');
+
+    if (process.platform !== 'darwin') {
+        throw new Error('This feature is currently only supported on macOS');
+    }
+
+    console.log(`Activating ${targetApp}...`);
+    return new Promise<void>((resolve, reject) => {
+        exec(`osascript -e '
+            tell application "${targetApp}" to activate
+            delay 0.2
+            tell application "System Events"
+                ${firstLine.split('').map(char => 
+                    `keystroke "${char.replace(/["']/g, '\\"')}"`
+                ).join('\n')}
+                delay 0.1
+                keystroke "v" using {command down}
+            end tell'`, 
+        (error) => {
+            if (error) {
+                console.log('AppleScript error:', error);
+                reject(new Error(`Failed to paste in ${targetApp}: ${error.message}`));
+            } else {
+                console.log('Text entry completed successfully');
+                resolve();
+            }
+        });
+    });
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function deactivate() {}
