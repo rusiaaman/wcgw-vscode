@@ -6,35 +6,54 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('WCGW extension is now active!');
     let disposable = vscode.commands.registerCommand('wcgw.sendToApp', async () => {
         console.log('WCGW command triggered');
-        // Try to get selection from either editor or terminal
+        // Check active focused terminal or editor
         let selectedText = '';
         let hasSelection = false;
         let filePath = '';
         
         const editor = vscode.window.activeTextEditor;
         const terminal = vscode.window.activeTerminal;
+        const inTerminal = terminal && !editor;
         
-        if (editor) {
-            // Get selection from editor
+        if (terminal) {
+            try {
+                // For terminal, we need to:
+                // 1. Store current clipboard
+                // 2. Copy selection (if any)
+                // 3. Get clipboard content
+                // 4. Restore original clipboard
+                const previousClipboard = await vscode.env.clipboard.readText();
+                
+                // Try to get selection first
+                await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+                await new Promise(resolve => setTimeout(resolve, 200)); // Give more time for clipboard
+                selectedText = await vscode.env.clipboard.readText();
+                
+                // If no selection, try to get current line/view
+                if (!selectedText.trim()) {
+                    await vscode.commands.executeCommand('workbench.action.terminal.selectAll');
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    selectedText = await vscode.env.clipboard.readText();
+                    // Clear selection
+                    await vscode.commands.executeCommand('workbench.action.terminal.clearSelection');
+                }
+                
+                // Restore original clipboard
+                await vscode.env.clipboard.writeText(previousClipboard);
+                hasSelection = selectedText.trim().length > 0;
+                filePath = 'Terminal';
+            } catch (error) {
+                console.error('Failed to get terminal content:', error);
+                vscode.window.showErrorMessage('Failed to get terminal content');
+                return;
+            }
+        } else if (editor) {
             const selection = editor.selection;
             selectedText = editor.document.getText(selection);
             hasSelection = selectedText.trim().length > 0;
             filePath = editor.document.uri.fsPath;
-        } else if (terminal) {
-            try {
-                // Get selection from terminal through system clipboard
-                const previousClipboard = await vscode.env.clipboard.readText();
-                await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
-                await new Promise(resolve => setTimeout(resolve, 100)); // Wait for clipboard
-                selectedText = await vscode.env.clipboard.readText();
-                await vscode.env.clipboard.writeText(previousClipboard); // Restore clipboard
-                hasSelection = selectedText.trim().length > 0;
-                filePath = 'Terminal';
-            } catch (error) {
-                console.error('Failed to get terminal selection:', error);
-                vscode.window.showErrorMessage('Failed to get terminal selection');
-                return;
-            }
         } else {
             vscode.window.showErrorMessage('No active editor or terminal found');
             return;
