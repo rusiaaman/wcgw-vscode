@@ -129,35 +129,41 @@ function formatContent(
     // Add separator
     contentBlocks.push('\n---');
 
-    // Add file paths
-    if (editorContent.text && terminalContent.text) {
-        contentBlocks.push(`File path: Terminal and ${editorContent.path}`);
-    } else if (editorContent.text) {
+    // Always add workspace path at the start if any content exists
+    if (editorContent.text || terminalContent.text) {
+        contentBlocks.push(`Workspace path: ${workspacePath}`);
+        contentBlocks.push('---');
+    }
+
+    // Handle different combinations of content
+    if (editorContent.text && !terminalContent.text) {
+        // Only editor content
         contentBlocks.push(`File path: ${editorContent.path}`);
-    } else if (terminalContent.text) {
-        contentBlocks.push('File path: Terminal');
-    }
-
-    contentBlocks.push(`Workspace path: ${workspacePath}`);
-    contentBlocks.push('---');
-    contentBlocks.push('Selected Code:');
-    contentBlocks.push('```');
-
-    // Add content blocks
-    if (terminalContent.text && editorContent.text) {
-        contentBlocks.push(
-            'Terminal selection:',
-            terminalContent.text,
-            '\nEditor selection:',
-            editorContent.text
-        );
-    } else if (editorContent.text) {
+        contentBlocks.push('---');
+        contentBlocks.push('Editor selection:');
+        contentBlocks.push('```');
         contentBlocks.push(editorContent.text);
-    } else if (terminalContent.text) {
+        contentBlocks.push('```');
+    } else if (!editorContent.text && terminalContent.text) {
+        // Only terminal content
+        contentBlocks.push('Terminal selection:');
+        contentBlocks.push('```');
         contentBlocks.push(terminalContent.text);
+        contentBlocks.push('```');
+    } else if (editorContent.text && terminalContent.text) {
+        // Both editor and terminal content
+        contentBlocks.push(`File path: ${editorContent.path}`);
+        contentBlocks.push('---');
+        contentBlocks.push('Editor selection:');
+        contentBlocks.push('```');
+        contentBlocks.push(editorContent.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+        contentBlocks.push('Terminal selection:');
+        contentBlocks.push('```');
+        contentBlocks.push(terminalContent.text);
+        contentBlocks.push('```');
     }
-
-    contentBlocks.push('```');
 
     return {
         firstLine,
