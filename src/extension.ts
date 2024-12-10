@@ -6,23 +6,24 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('WCGW extension is now active!');
     let disposable = vscode.commands.registerCommand('wcgw.sendToApp', async () => {
         console.log('WCGW command triggered');
-        // Check active focused terminal or editor
-        let selectedText = '';
+        // Store selections from both editor and terminal before showing prompt
+        let editorText = '';
+        let editorPath = '';
+        let terminalText = '';
         let hasSelection = false;
-        let filePath = '';
         
         const editor = vscode.window.activeTextEditor;
         const terminal = vscode.window.activeTerminal;
-        
-        // First try editor - if it's focused and has a selection, use that
-        if (editor && editor === vscode.window.activeTextEditor) {
+
+        // Get editor selection if it exists
+        if (editor) {
             const selection = editor.selection;
-            selectedText = editor.document.getText(selection);
-            hasSelection = selectedText.trim().length > 0;
-            filePath = editor.document.uri.fsPath;
-        } 
-        // If no editor or no selection in editor, try terminal
-        else if (terminal) {  // Terminal exists
+            editorText = editor.document.getText(selection);
+            editorPath = editor.document.uri.fsPath;
+        }
+
+        // Get terminal selection/content if it exists
+        if (terminal) {
             try {
                 // For terminal, we need to:
                 // 1. Store current clipboard
@@ -34,36 +35,55 @@ export function activate(context: vscode.ExtensionContext) {
                 // Try to get selection first
                 await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
                 await new Promise(resolve => setTimeout(resolve, 200)); // Give more time for clipboard
-                selectedText = await vscode.env.clipboard.readText();
+                let clipText = await vscode.env.clipboard.readText();
                 
                 // If no selection, try to get current line/view
-                if (!selectedText.trim()) {
+                if (!clipText.trim()) {
                     await vscode.commands.executeCommand('workbench.action.terminal.selectAll');
                     await new Promise(resolve => setTimeout(resolve, 100));
                     await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
                     await new Promise(resolve => setTimeout(resolve, 200));
-                    selectedText = await vscode.env.clipboard.readText();
+                    clipText = await vscode.env.clipboard.readText();
                     // Clear selection
                     await vscode.commands.executeCommand('workbench.action.terminal.clearSelection');
                 }
                 
                 // Restore original clipboard
                 await vscode.env.clipboard.writeText(previousClipboard);
-                hasSelection = selectedText.trim().length > 0;
-                filePath = 'Terminal';
+                terminalText = clipText.trim();
             } catch (error) {
                 console.error('Failed to get terminal content:', error);
                 vscode.window.showErrorMessage('Failed to get terminal content');
                 return;
             }
-        } else if (editor) {  // Use editor if terminal is not focused
-            const selection = editor.selection;
-            selectedText = editor.document.getText(selection);
-            hasSelection = selectedText.trim().length > 0;
-            filePath = editor.document.uri.fsPath;
-        } else {
-            vscode.window.showErrorMessage('No active editor or terminal found');
+        }
+
+        // If no content from either source, show error
+        if (!editorText.trim() && !terminalText) {
+            vscode.window.showErrorMessage('No selection found in editor or terminal');
             return;
+        }
+
+        // Set hasSelection and determine which content to use
+        hasSelection = true;
+        let selectedText = '';
+        let filePath = '';
+
+        // If terminal text exists, use it
+        if (terminalText) {
+            selectedText = terminalText;
+            filePath = 'Terminal';
+        }
+        // If terminal text doesn't exist but editor text does, use editor
+        else if (editorText.trim()) {
+            selectedText = editorText;
+            filePath = editorPath;
+        }
+
+        // If both exist, combine them
+        if (terminalText && editorText.trim()) {
+            selectedText = `Terminal selection:\n${terminalText}\n\nEditor selection:\n${editorText}`;
+            filePath = `Terminal and ${editorPath}`;
         }
 
         // Show input box for helpful text
