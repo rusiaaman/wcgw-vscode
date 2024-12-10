@@ -13,9 +13,16 @@ export function activate(context: vscode.ExtensionContext) {
         
         const editor = vscode.window.activeTextEditor;
         const terminal = vscode.window.activeTerminal;
-        const terminalFocused = await vscode.commands.executeCommand('workbench.action.terminal.isFocused');
-
-        if (terminalFocused && terminal) {  // Terminal is focused and exists
+        
+        // First try editor - if it's focused and has a selection, use that
+        if (editor && editor === vscode.window.activeTextEditor) {
+            const selection = editor.selection;
+            selectedText = editor.document.getText(selection);
+            hasSelection = selectedText.trim().length > 0;
+            filePath = editor.document.uri.fsPath;
+        } 
+        // If no editor or no selection in editor, try terminal
+        else if (terminal) {  // Terminal exists
             try {
                 // For terminal, we need to:
                 // 1. Store current clipboard
