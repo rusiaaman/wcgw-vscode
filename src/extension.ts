@@ -164,6 +164,11 @@ function formatEditorContent(
     contentBlocks.push(editorContent.text);
     contentBlocks.push('```');
 
+    // Add further instructions
+
+    contentBlocks.push("---")
+    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.")
+
     return {
         firstLine,
         restOfText: contentBlocks.join('\n')
@@ -196,6 +201,8 @@ function formatTerminalContent(
     contentBlocks.push('```');
     contentBlocks.push(terminalContent.text);
     contentBlocks.push('```');
+    contentBlocks.push("---")
+    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.")
 
     return {
         firstLine,
