@@ -192,25 +192,31 @@ export function activate(context: vscode.ExtensionContext) {
         return files.flat(); // Flatten the array after all promises resolve
 }
 
-    async function getRelevantFiles(): Promise<string[]> {
-        const files = ['package.json', 'pyproject.toml', 'README.md']; // Add more as needed
-        return files.filter(async (file) => {
-            const uri = vscode.workspace.workspaceFolders?.[0]?.uri ? 
-                vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, file) : null;
-            if (!uri) return false;
+    async function getRelevantFiles(): Promise<string> {
+        const files = ['package.json', 'pyproject.toml', 'README.md']; 
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        if (!workspaceRoot) return '';
+
+        const fileContents: string[] = [];
+
+        for (const file of files) {
+            const uri = vscode.Uri.joinPath(workspaceRoot, file);
             try {
-                await vscode.workspace.fs.stat(uri);
-                return true;
+                const content = await vscode.workspace.fs.readFile(uri);
+                fileContents.push(`// ${uri.fsPath}\n\`\`\`\n${content.toString()}\n\`\`\`\n`);
             } catch {
-                return false;
+                // Skip files that don't exist or can't be read
+                continue;
             }
-        });
+        }
+
+        return fileContents.join('\n');
     }
 
     function formatFullContextContent(
         content: SelectionContent,
         workspaceStructure: string,
-        relevantFiles: string[],
+        relevantFiles: string,
         isTerminal: boolean = false
     ): string {
         const blocks: string[] = [];
@@ -230,7 +236,7 @@ export function activate(context: vscode.ExtensionContext) {
         blocks.push(workspaceStructure);
         blocks.push('---');
         blocks.push('Relevant files:');
-        blocks.push(relevantFiles.join('\n'));
+        blocks.push(relevantFiles); // Already formatted with file paths and content
         blocks.push('---');
         
         return blocks.join('\n');
