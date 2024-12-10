@@ -103,7 +103,6 @@ export function activate(context: vscode.ExtensionContext) {
                 firstLine: helpfulText,
                 restOfText: contextContent
             });
-            vscode.window.showInformationMessage('Context sent to target app!');
 
         } catch (error: unknown) {
             console.error('Error in copyWithFullContext:', error);
@@ -141,7 +140,6 @@ export function activate(context: vscode.ExtensionContext) {
                 firstLine: helpfulText,
                 restOfText: contextContent
             });
-            vscode.window.showInformationMessage('Context sent to target app!');
 
         } catch (error: unknown) {
             console.error('Error in copyWithFullContextTerminal:', error);
@@ -175,7 +173,49 @@ export function activate(context: vscode.ExtensionContext) {
             return !ig.ignores(relativePath) && !relativePath.startsWith('.git');
         });
 
-        return filteredFiles.join('\n');
+        // Group files by directory
+        const filesByDirectory = new Map<string, string[]>();
+        const MAX_FILES_PER_DIR = 30;
+        const MAX_TOTAL_FILES = 300;
+        let totalFiles = 0;
+
+        filteredFiles.forEach((file) => {
+            const dir = path.dirname(file);
+            if (!filesByDirectory.has(dir)) {
+                filesByDirectory.set(dir, []);
+            }
+            filesByDirectory.get(dir)?.push(file);
+        });
+
+        // Build the output string with truncation markers
+        const outputParts: string[] = [];
+        
+        for (const [dir, files] of filesByDirectory) {
+            if (totalFiles >= MAX_TOTAL_FILES) {
+                outputParts.push('... (more directories truncated)');
+                break;
+            }
+
+            if (files.length > MAX_FILES_PER_DIR) {
+                const truncatedFiles = files.slice(0, MAX_FILES_PER_DIR);
+                truncatedFiles.forEach((file) => {
+                    if (totalFiles < MAX_TOTAL_FILES) {
+                        outputParts.push(file);
+                        totalFiles++;
+                    }
+                });
+                outputParts.push(`... (${files.length - MAX_FILES_PER_DIR} more files in ${dir})`);
+            } else {
+                files.forEach((file) => {
+                    if (totalFiles < MAX_TOTAL_FILES) {
+                        outputParts.push(file);
+                        totalFiles++;
+                    }
+                });
+            }
+        }
+
+        return outputParts.join('\n');
     }
 
     async function getAllFiles(dir: string): Promise<string[]> {

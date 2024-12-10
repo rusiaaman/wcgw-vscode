@@ -1,0 +1,4 @@
+out/!(extension.js|extension.js.map)
+node_modules/
+.vscode-test/
+*.vsix
