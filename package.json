@@ -31,6 +31,10 @@
             {
                 "command": "wcgw.copyWithFullContext",
                 "title": "WCGW: Copy Selection with Full Context"
+            },
+            {
+                "command": "wcgw.copyWithFullContextTerminal",
+                "title": "WCGW: Copy Terminal Selection with Full Context"
             }
         ],
         "configuration": {
@@ -60,7 +64,13 @@
                 "command": "wcgw.copyWithFullContext",
                 "key": "cmd+shift+'",
                 "mac": "cmd+shift+'",
-                "when": "!inDebugRepl"
+                "when": "editorTextFocus && !inDebugRepl"
+            },
+            {
+                "command": "wcgw.copyWithFullContextTerminal",
+                "key": "cmd+shift+'",
+                "mac": "cmd+shift+'",
+                "when": "terminalFocus && !inDebugRepl"
             }
         ]
     },

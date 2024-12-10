@@ -95,7 +95,8 @@ export function activate(context: vscode.ExtensionContext) {
             const contextContent = formatFullContextContent(
                 editorContent,
                 workspaceStructure,
-                relevantFiles
+                relevantFiles,
+                false
             );
 
             await copyToTargetApp({
@@ -111,7 +112,45 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand);
+    const fullContextTerminalCommand = vscode.commands.registerCommand('wcgw.copyWithFullContextTerminal', async () => {
+        console.log('WCGW full context terminal command triggered');
+
+        try {
+            const terminalContent = await getTerminalSelection();
+
+            const helpfulText = await vscode.window.showInputBox({
+                prompt: "Instructions or helpful text to include with the full context",
+                placeHolder: "E.g.: This contains the terminal output with full repo structure..."
+            });
+
+            if (helpfulText === undefined) {
+                return; // User cancelled
+            }
+            
+            const workspaceStructure = await getWorkspaceStructure();
+            const relevantFiles = await getRelevantFiles();
+
+            const contextContent = formatFullContextContent(
+                terminalContent,
+                workspaceStructure,
+                relevantFiles,
+                true
+            );
+
+            await copyToTargetApp({
+                firstLine: helpfulText,
+                restOfText: contextContent
+            });
+            vscode.window.showInformationMessage('Context sent to target app!');
+
+        } catch (error: unknown) {
+            console.error('Error in copyWithFullContextTerminal:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
+        }
+    });
+
+    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand, fullContextTerminalCommand);
 
     async function getWorkspaceStructure(): Promise<string> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -169,19 +208,20 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     function formatFullContextContent(
-        editorContent: SelectionContent,
+        content: SelectionContent,
         workspaceStructure: string,
-        relevantFiles: string[]
+        relevantFiles: string[],
+        isTerminal: boolean = false
     ): string {
         const blocks: string[] = [];
         
         blocks.push('\n---');
         
-        // Only include the selected code block if there is content
-        if (editorContent.text.trim()) {
-            blocks.push('Selected code:');
+        // Only include the selected content block if there is content
+        if (content.text.trim()) {
+            blocks.push(isTerminal ? 'Terminal selection:' : 'Selected code:');
             blocks.push('```');
-            blocks.push(editorContent.text);
+            blocks.push(content.text);
             blocks.push('```');
             blocks.push('---');
         }
