@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
+import ignore from 'ignore';
 
 interface SelectionContent {
     text: string;
@@ -16,10 +18,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         try {
             const editorContent = await getEditorSelection();
-            if (!editorContent.text) {
-                vscode.window.showErrorMessage('No selection found in editor');
-                return;
-            }
 
             const helpfulText = await vscode.window.showInputBox({
                 prompt: "Instructions or helpful text to include with the code snippet",
@@ -51,10 +49,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         try {
             const terminalContent = await getTerminalSelection();
-            if (!terminalContent.text) {
-                vscode.window.showErrorMessage('No selection found in terminal');
-                return;
-            }
 
             const helpfulText = await vscode.window.showInputBox({
                 prompt: "Instructions or helpful text to include with the terminal output",
@@ -80,7 +74,205 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(editorCommand, terminalCommand);
+    const fullContextCommand = vscode.commands.registerCommand('wcgw.copyWithFullContext', async () => {
+        console.log('WCGW full context command triggered');
+
+        try {
+            const editorContent = await getEditorSelection();
+
+            const helpfulText = await vscode.window.showInputBox({
+                prompt: "Instructions or helpful text to include with the full context",
+                placeHolder: "E.g.: This contains the full repo structure and relevant files..."
+            });
+
+            if (helpfulText === undefined) {
+                return; // User cancelled
+            }
+            
+            const workspaceStructure = await getWorkspaceStructure();
+            const relevantFiles = await getRelevantFiles();
+
+            const contextContent = formatFullContextContent(
+                editorContent,
+                workspaceStructure,
+                relevantFiles,
+                false
+            );
+
+            await copyToTargetApp({
+                firstLine: helpfulText,
+                restOfText: contextContent
+            });
+            vscode.window.showInformationMessage('Context sent to target app!');
+
+        } catch (error: unknown) {
+            console.error('Error in copyWithFullContext:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
+        }
+    });
+
+    const fullContextTerminalCommand = vscode.commands.registerCommand('wcgw.copyWithFullContextTerminal', async () => {
+        console.log('WCGW full context terminal command triggered');
+
+        try {
+            const terminalContent = await getTerminalSelection();
+
+            const helpfulText = await vscode.window.showInputBox({
+                prompt: "Instructions or helpful text to include with the full context",
+                placeHolder: "E.g.: This contains the terminal output with full repo structure..."
+            });
+
+            if (helpfulText === undefined) {
+                return; // User cancelled
+            }
+            
+            const workspaceStructure = await getWorkspaceStructure();
+            const relevantFiles = await getRelevantFiles();
+
+            const contextContent = formatFullContextContent(
+                terminalContent,
+                workspaceStructure,
+                relevantFiles,
+                true
+            );
+
+            await copyToTargetApp({
+                firstLine: helpfulText,
+                restOfText: contextContent
+            });
+            vscode.window.showInformationMessage('Context sent to target app!');
+
+        } catch (error: unknown) {
+            console.error('Error in copyWithFullContextTerminal:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Operation failed: ${errorMessage}`);
+        }
+    });
+
+    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand, fullContextTerminalCommand);
+
+    async function getWorkspaceStructure(): Promise<string> {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceFolder) {
+            return '';
+        }
+
+        // Load and parse .gitignore
+        const gitignorePath = path.join(workspaceFolder, '.gitignore');
+        let ig = ignore();
+        if (fs.existsSync(gitignorePath)) {
+            const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+            ig = ignore().add(gitignoreContent);
+        }
+
+        // Get all files
+        const allFiles = await getAllFiles(workspaceFolder);
+
+        // Filter files using .gitignore
+        const filteredFiles = allFiles.filter((file) => {
+            const relativePath = path.relative(workspaceFolder, file);
+            return !ig.ignores(relativePath) && !relativePath.startsWith('.git');
+        });
+
+        return filteredFiles.join('\n');
+    }
+
+    async function getAllFiles(dir: string): Promise<string[]> {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const files = await Promise.all(
+            entries.flatMap(async (entry: fs.Dirent) => {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    return await getAllFiles(fullPath); // Recursively resolve directory contents
+                }
+                return fullPath; // Return the file path as a string
+            })
+        );
+        return files.flat(); // Flatten the array after all promises resolve
+}
+
+    async function getRelevantFiles(): Promise<string> {
+        const files = [
+            // Core project files
+            'README.md',             // Project overview and documentation
+            'README.txt',            // Alternative README format
+            'README',                // No extension README
+            'package.json',          // Node.js/JavaScript project manifest
+            'pyproject.toml',        // Python project configuration
+            'Cargo.toml',            // Rust project manifest
+            'go.mod',                // Go project manifest
+            'pom.xml',               // Java Maven project
+            'build.gradle',          // Java/Kotlin Gradle project
+            'composer.json',         // PHP project manifest
+            'Gemfile',               // Ruby project dependencies
+            'mix.exs',               // Elixir project configuration
+            'Package.swift',         // Swift package manifest
+            'pubspec.yaml',          // Dart/Flutter project manifest
+            'CMakeLists.txt',        // C/C++ project configuration
+            'Makefile',              // Generic build configuration
+            'setup.py',              // Python setup configuration (legacy)
+            'index.html'             // Web project entrypoint
+        ]; 
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        if (!workspaceRoot) return '';
+
+        const fileContents: string[] = [];
+
+        for (const file of files) {
+            const uri = vscode.Uri.joinPath(workspaceRoot, file);
+            try {
+                const content = await vscode.workspace.fs.readFile(uri);
+                fileContents.push(`// ${uri.fsPath}\n\`\`\`\n${content.toString()}\n\`\`\`\n`);
+            } catch {
+                // Skip files that don't exist or can't be read
+                continue;
+            }
+        }
+
+        return fileContents.join('\n');
+    }
+
+    function formatFullContextContent(
+        content: SelectionContent,
+        workspaceStructure: string,
+        relevantFiles: string,
+        isTerminal: boolean = false
+    ): string {
+        const blocks: string[] = [];
+        
+        blocks.push('\n---');
+        
+        // Only include the selected content block if there is content
+        if (content.text.trim()) {
+            blocks.push(isTerminal ? 'Terminal selection:' : 'Selected code:');
+            blocks.push('```');
+            blocks.push(content.text);
+            blocks.push('```');
+            blocks.push('---');
+        }
+        
+        blocks.push('Workspace structure:');
+        blocks.push(workspaceStructure);
+        blocks.push('---');
+        blocks.push('Frequently asked for files:');
+        blocks.push(relevantFiles); // Already formatted with file paths and content
+        blocks.push('---');
+        
+        return blocks.join('\n');
+    }
+
+    async function execCommand(cmd: string, cwd: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            exec(cmd, { cwd }, (error, stdout) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(stdout.trim());
+                }
+            });
+        });
+    }
 }
 
 async function getEditorSelection(): Promise<SelectionContent> {
@@ -156,18 +348,19 @@ function formatEditorContent(
     contentBlocks.push(`Workspace path: ${workspacePath}`);
     contentBlocks.push('---');
 
-    // Add file path and editor content
-    contentBlocks.push(`File path: ${editorContent.path}`);
-    contentBlocks.push('---');
-    contentBlocks.push('Selected code:');
-    contentBlocks.push('```');
-    contentBlocks.push(editorContent.text);
-    contentBlocks.push('```');
+    // Add file path and editor content only if there is content
+    if (editorContent.text.trim()) {
+        contentBlocks.push(`File path: ${editorContent.path}`);
+        contentBlocks.push('---');
+        contentBlocks.push('Selected code:');
+        contentBlocks.push('```');
+        contentBlocks.push(editorContent.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+    }
 
     // Add further instructions
-
-    contentBlocks.push("---")
-    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.")
+    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.");
 
     return {
         firstLine,
@@ -196,13 +389,17 @@ function formatTerminalContent(
     contentBlocks.push(`Workspace path: ${workspacePath}`);
     contentBlocks.push('---');
 
-    // Add terminal content
-    contentBlocks.push('Terminal output:');
-    contentBlocks.push('```');
-    contentBlocks.push(terminalContent.text);
-    contentBlocks.push('```');
-    contentBlocks.push("---")
-    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.")
+    // Add terminal content only if there is content
+    if (terminalContent.text.trim()) {
+        contentBlocks.push('Terminal output:');
+        contentBlocks.push('```');
+        contentBlocks.push(terminalContent.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+    }
+
+    // Add further instructions
+    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.");
 
     return {
         firstLine,

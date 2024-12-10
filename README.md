@@ -20,15 +20,21 @@ https://github.com/rusiaaman/wcgw.git
    - Switch to Claude
    - Type your instructions
    - Include selected code and context information
+5. Press `Cmd+Shift+'` to copy the selected code with additional context:
+   - Repository structure
+   - Frequently relevant files (e.g., package.json, pyproject.toml, Readme.md, etc., listing at least 20 such files)
 
 ### For Terminal Output
 1. Select text in the terminal
-2. Press `Cmd+Shift+'` (Mac) or run command "WCGW: Send Terminal Selection to Application"
+2. Press `Cmd+'` (Mac) or run command "WCGW: Send Terminal Selection to Application"
 3. Enter helpful text/instructions (or press Escape for default)
 4. Extension will:
    - Switch to Claude
    - Type your instructions
    - Include terminal output and context information
+5. Press `Cmd+Shift+'` to copy terminal output with additional context:
+   - Repository structure
+   - Frequently relevant files (e.g., package.json, pyproject.toml, Readme.md, etc., listing at least 20 such files)
 
 ## Example Output
 
