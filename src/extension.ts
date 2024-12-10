@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
+import ignore from 'ignore';
 
 interface SelectionContent {
     text: string;
@@ -77,11 +79,16 @@ export function activate(context: vscode.ExtensionContext) {
 
         try {
             const editorContent = await getEditorSelection();
-            if (!editorContent.text) {
-                vscode.window.showErrorMessage('No selection found in editor');
-                return;
-            }
 
+            const helpfulText = await vscode.window.showInputBox({
+                prompt: "Instructions or helpful text to include with the full context",
+                placeHolder: "E.g.: This contains the full repo structure and relevant files..."
+            });
+
+            if (helpfulText === undefined) {
+                return; // User cancelled
+            }
+            
             const workspaceStructure = await getWorkspaceStructure();
             const relevantFiles = await getRelevantFiles();
 
@@ -91,8 +98,11 @@ export function activate(context: vscode.ExtensionContext) {
                 relevantFiles
             );
 
-            await vscode.env.clipboard.writeText(contextContent);
-            vscode.window.showInformationMessage('Context copied to clipboard!');
+            await copyToTargetApp({
+                firstLine: helpfulText,
+                restOfText: contextContent
+            });
+            vscode.window.showInformationMessage('Context sent to target app!');
 
         } catch (error: unknown) {
             console.error('Error in copyWithFullContext:', error);
@@ -104,12 +114,44 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand);
 
     async function getWorkspaceStructure(): Promise<string> {
-        const folders = vscode.workspace.workspaceFolders;
-        if (!folders || folders.length === 0) {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceFolder) {
             return '';
         }
-        return execCommand('find . -type f | grep -vE "(node_modules|\.git|venv)"', folders[0].uri.fsPath);
+
+        // Load and parse .gitignore
+        const gitignorePath = path.join(workspaceFolder, '.gitignore');
+        let ig = ignore();
+        if (fs.existsSync(gitignorePath)) {
+            const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+            ig = ignore().add(gitignoreContent);
+        }
+
+        // Get all files
+        const allFiles = await getAllFiles(workspaceFolder);
+
+        // Filter files using .gitignore
+        const filteredFiles = allFiles.filter((file) => {
+            const relativePath = path.relative(workspaceFolder, file);
+            return !ig.ignores(relativePath) && !relativePath.startsWith('.git');
+        });
+
+        return filteredFiles.join('\n');
     }
+
+    async function getAllFiles(dir: string): Promise<string[]> {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const files = await Promise.all(
+            entries.flatMap(async (entry: fs.Dirent) => {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    return await getAllFiles(fullPath); // Recursively resolve directory contents
+                }
+                return fullPath; // Return the file path as a string
+            })
+        );
+        return files.flat(); // Flatten the array after all promises resolve
+}
 
     async function getRelevantFiles(): Promise<string[]> {
         const files = ['package.json', 'pyproject.toml', 'README.md']; // Add more as needed
@@ -131,20 +173,26 @@ export function activate(context: vscode.ExtensionContext) {
         workspaceStructure: string,
         relevantFiles: string[]
     ): string {
-        const blocks: string[] = [
-            '---',
-            'Selected code:',
-            '```',
-            editorContent.text,
-            '```',
-            '---',
-            'Workspace structure:',
-            workspaceStructure,
-            '---',
-            'Relevant files:',
-            relevantFiles.join('\n'),
-            '---'
-        ];
+        const blocks: string[] = [];
+        
+        blocks.push('\n---');
+        
+        // Only include the selected code block if there is content
+        if (editorContent.text.trim()) {
+            blocks.push('Selected code:');
+            blocks.push('```');
+            blocks.push(editorContent.text);
+            blocks.push('```');
+            blocks.push('---');
+        }
+        
+        blocks.push('Workspace structure:');
+        blocks.push(workspaceStructure);
+        blocks.push('---');
+        blocks.push('Relevant files:');
+        blocks.push(relevantFiles.join('\n'));
+        blocks.push('---');
+        
         return blocks.join('\n');
     }
 
@@ -234,18 +282,19 @@ function formatEditorContent(
     contentBlocks.push(`Workspace path: ${workspacePath}`);
     contentBlocks.push('---');
 
-    // Add file path and editor content
-    contentBlocks.push(`File path: ${editorContent.path}`);
-    contentBlocks.push('---');
-    contentBlocks.push('Selected code:');
-    contentBlocks.push('```');
-    contentBlocks.push(editorContent.text);
-    contentBlocks.push('```');
+    // Add file path and editor content only if there is content
+    if (editorContent.text.trim()) {
+        contentBlocks.push(`File path: ${editorContent.path}`);
+        contentBlocks.push('---');
+        contentBlocks.push('Selected code:');
+        contentBlocks.push('```');
+        contentBlocks.push(editorContent.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+    }
 
     // Add further instructions
-
-    contentBlocks.push("---")
-    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.")
+    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.");
 
     return {
         firstLine,
@@ -274,13 +323,17 @@ function formatTerminalContent(
     contentBlocks.push(`Workspace path: ${workspacePath}`);
     contentBlocks.push('---');
 
-    // Add terminal content
-    contentBlocks.push('Terminal output:');
-    contentBlocks.push('```');
-    contentBlocks.push(terminalContent.text);
-    contentBlocks.push('```');
-    contentBlocks.push("---")
-    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.")
+    // Add terminal content only if there is content
+    if (terminalContent.text.trim()) {
+        contentBlocks.push('Terminal output:');
+        contentBlocks.push('```');
+        contentBlocks.push(terminalContent.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+    }
+
+    // Add further instructions
+    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.");
 
     return {
         firstLine,
