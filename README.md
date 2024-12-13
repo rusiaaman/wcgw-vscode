@@ -1,7 +1,8 @@
 # WCGW
 
-A VS Code extension that helps you share code snippets with context to Claude. Designed to work with wcgw mcp 
+A Mac only VS Code extension that helps you share code snippets with context to Claude. Designed to work with wcgw mcp 
 https://github.com/rusiaaman/wcgw.git
+
 
 ## Features
 
@@ -12,9 +13,11 @@ https://github.com/rusiaaman/wcgw.git
 
 ## How to Use
 
+Warning: this uses apple script. Make sure you don't press "Cmd" while the tool is doing its job.
+
 ### For Editor Content
 1. Select code in the editor you want to share
-2. Press `Cmd+'` (Mac) or run command "WCGW: Send Editor Selection to Application"
+2. Press `Cmd+'` or run command "WCGW: Send Editor Selection to Application"
 3. Enter helpful text/instructions (or press Escape for default)
 4. Extension will:
    - Switch to Claude
@@ -23,6 +26,7 @@ https://github.com/rusiaaman/wcgw.git
 5. Press `Cmd+Shift+'` to copy the selected code with additional context:
    - Repository structure
    - Frequently relevant files (e.g., package.json, pyproject.toml, Readme.md, etc., listing at least 20 such files)
+
 
 ### For Terminal Output
 1. Select text in the terminal
@@ -35,6 +39,7 @@ https://github.com/rusiaaman/wcgw.git
 5. Press `Cmd+Shift+'` to copy terminal output with additional context:
    - Repository structure
    - Frequently relevant files (e.g., package.json, pyproject.toml, Readme.md, etc., listing at least 20 such files)
+
 
 ## Example Output
 
