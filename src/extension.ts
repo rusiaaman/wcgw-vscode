@@ -298,7 +298,7 @@ export function activate(context: vscode.ExtensionContext) {
         blocks.push('Frequently asked for files:');
         blocks.push(relevantFiles); // Already formatted with file paths and content
         blocks.push('---');
-         blocks.push("Use shell tools to further understand and update the code.");
+         blocks.push("Use available tools to further understand and update the code.");
         
         return blocks.join('\n');
     }
@@ -405,7 +405,7 @@ function formatEditorContent(
 
 
     // Add further instructions
-    contentBlocks.push("Use shell tools to further understand and update the code.");
+    contentBlocks.push("Use available tools to further understand and update the code.");
 
     return {
         firstLine,
@@ -444,7 +444,7 @@ function formatTerminalContent(
 
 
     // Add further instructions
-    contentBlocks.push("Use shell tools to further understand and update the code.");
+    contentBlocks.push("Use available tools to further understand and update the code.");
 
     return {
         firstLine,
