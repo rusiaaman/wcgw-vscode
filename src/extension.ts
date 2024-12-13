@@ -273,7 +273,7 @@ export function activate(context: vscode.ExtensionContext) {
         return fileContents.join('\n');
     }
 
-    function formatFullContextContent(
+   function formatFullContextContent(
         content: SelectionContent,
         workspaceStructure: string,
         relevantFiles: string,
@@ -298,9 +298,11 @@ export function activate(context: vscode.ExtensionContext) {
         blocks.push('Frequently asked for files:');
         blocks.push(relevantFiles); // Already formatted with file paths and content
         blocks.push('---');
+         blocks.push("Use shell tools to further understand and update the code.");
         
         return blocks.join('\n');
     }
+
 
     async function execCommand(cmd: string, cwd: string): Promise<string> {
         return new Promise((resolve, reject) => {
@@ -382,25 +384,28 @@ function formatEditorContent(
     if (otherHelpfulLines.length > 0) {
         contentBlocks.push(otherHelpfulLines.join('\n'));
     }
-
-    // Add separator and workspace info
+   
     contentBlocks.push('\n---');
-    contentBlocks.push(`Workspace path: ${workspacePath}`);
-    contentBlocks.push('---');
-
-    // Add file path and editor content only if there is content
+    
+   // Add separator and file content
     if (editorContent.text.trim()) {
-        contentBlocks.push(`File path: ${editorContent.path}`);
-        contentBlocks.push('---');
-        contentBlocks.push('Selected code:');
         contentBlocks.push('```');
         contentBlocks.push(editorContent.text);
         contentBlocks.push('```');
         contentBlocks.push('---');
     }
 
+    // Add separator and workspace info
+    contentBlocks.push(`Workspace path: ${workspacePath}`);
+    if (editorContent.path) {
+      contentBlocks.push(`File path: ${editorContent.path}`);
+    }
+
+    contentBlocks.push('---');
+
+
     // Add further instructions
-    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.");
+    contentBlocks.push("Use shell tools to further understand and update the code.");
 
     return {
         firstLine,
@@ -423,23 +428,23 @@ function formatTerminalContent(
     if (otherHelpfulLines.length > 0) {
         contentBlocks.push(otherHelpfulLines.join('\n'));
     }
-
-    // Add separator and workspace info
     contentBlocks.push('\n---');
-    contentBlocks.push(`Workspace path: ${workspacePath}`);
-    contentBlocks.push('---');
-
-    // Add terminal content only if there is content
+    // Add separator and file content
     if (terminalContent.text.trim()) {
-        contentBlocks.push('Terminal output:');
+        contentBlocks.push('Terminal selection:');
         contentBlocks.push('```');
         contentBlocks.push(terminalContent.text);
         contentBlocks.push('```');
         contentBlocks.push('---');
     }
 
+    // Add separator and workspace info
+    contentBlocks.push(`Workspace path: ${workspacePath}`);
+    contentBlocks.push('---');
+
+
     // Add further instructions
-    contentBlocks.push("Read all relevant files and understand workspace structure using the available tools.");
+    contentBlocks.push("Use shell tools to further understand and update the code.");
 
     return {
         firstLine,
