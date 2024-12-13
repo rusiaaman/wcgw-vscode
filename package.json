@@ -75,8 +75,7 @@
             {
                 "command": "wcgw.captureScreenshot",
                 "key": "cmd+shift+8",
-                "mac": "cmd+shift+8",
-                "when": "editorTextFocus || terminalFocus"
+                "mac": "cmd+shift+8"
             }
         ]
     },
