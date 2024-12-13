@@ -292,13 +292,21 @@ export function activate(context: vscode.ExtensionContext) {
             blocks.push('---');
         }
         
+        // Add workspace path and file path
+        const workspacePath = getWorkspacePath();
+        blocks.push(`Workspace path: ${workspacePath}`);
+        if (content.path) {
+            blocks.push(`File path: ${content.path}`);
+        }
+        blocks.push('---');
+        
         blocks.push('Workspace structure:');
         blocks.push(workspaceStructure);
         blocks.push('---');
         blocks.push('Frequently asked for files:');
         blocks.push(relevantFiles); // Already formatted with file paths and content
         blocks.push('---');
-         blocks.push("Use available tools to further understand and update the code.");
+        blocks.push("Use available tools to further understand and update the code.");
         
         return blocks.join('\n');
     }
