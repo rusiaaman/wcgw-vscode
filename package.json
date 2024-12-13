@@ -7,7 +7,7 @@
         "type": "git",
         "url": "https://github.com/rusiaaman/wcgw-vscode"
     },
-    "version": "0.3.3",
+    "version": "0.3.4",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -71,11 +71,6 @@
                 "key": "cmd+shift+'",
                 "mac": "cmd+shift+'",
                 "when": "terminalFocus && !inDebugRepl"
-            },
-            {
-                "command": "wcgw.captureScreenshot",
-                "key": "cmd+shift+8",
-                "mac": "cmd+shift+8"
             }
         ]
     },
