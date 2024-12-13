@@ -148,7 +148,49 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand, fullContextTerminalCommand);
+    // Register screenshot command
+    let screenshotCommand = vscode.commands.registerCommand('wcgw.captureScreenshot', async () => {
+        console.log('WCGW screenshot command triggered');
+
+        try {
+            if (process.platform !== 'darwin') {
+                throw new Error('Screenshot feature is currently only supported on macOS');
+            }
+
+            // Capture the screenshot directly to clipboard using interactive mode (-i -c)
+            await execCommand('screencapture -i -c', process.cwd());
+            
+            // Get the target application config
+            const config = vscode.workspace.getConfiguration('wcgw');
+            const targetApp = config.get<string>('targetApplication', 'Notes');
+
+            // Activate target app and paste
+            await new Promise<void>((resolve, reject) => {
+                exec(`osascript -e '
+                    tell application "${targetApp}" to activate
+                    delay 0.2
+                    tell application "System Events"
+                        keystroke "v" using {command down}
+                    end tell'`,
+                (error) => {
+                    if (error) {
+                        console.log('AppleScript error:', error);
+                        reject(new Error(`Failed to paste in ${targetApp}: ${error.message}`));
+                    } else {
+                        console.log('Screenshot pasted successfully');
+                        resolve();
+                    }
+                });
+            });
+
+        } catch (error: unknown) {
+            console.error('Error in captureScreenshot:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Screenshot failed: ${errorMessage}`);
+        }
+    });
+
+    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand, fullContextTerminalCommand, screenshotCommand);
 
     async function getWorkspaceStructure(): Promise<string> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -409,6 +451,38 @@ function formatEditorContent(
 
     return {
         firstLine,
+        restOfText: contentBlocks.join('\n')
+    };
+}
+
+function formatScreenshotContent(
+    content: SelectionContent,
+    workspacePath: string
+): { firstLine: string; restOfText: string } {
+    let contentBlocks: string[] = [];
+
+    // Add editor/terminal content if it exists
+    if (content.text.trim()) {
+        contentBlocks.push('Selected content:');
+        contentBlocks.push('```');
+        contentBlocks.push(content.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+    }
+
+    // Add workspace info
+    contentBlocks.push(`Workspace path: ${workspacePath}`);
+    if (content.path) {
+        contentBlocks.push(`File path: ${content.path}`);
+    }
+    contentBlocks.push('---');
+
+    // Add further instructions
+    contentBlocks.push("Use available tools to further understand and update the code.");
+
+    // For screenshots, we'll use a standard first line
+    return {
+        firstLine: "Screenshot with context",
         restOfText: contentBlocks.join('\n')
     };
 }
