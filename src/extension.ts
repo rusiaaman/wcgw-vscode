@@ -306,7 +306,7 @@ export function activate(context: vscode.ExtensionContext) {
         blocks.push('Frequently asked for files:');
         blocks.push(relevantFiles); // Already formatted with file paths and content
         blocks.push('---');
-        blocks.push("Use available tools to further understand and update the code.");
+        blocks.push("Use shell tools to further read relevant files and update the files in place.");
         
         return blocks.join('\n');
     }
@@ -413,7 +413,7 @@ function formatEditorContent(
 
 
     // Add further instructions
-    contentBlocks.push("Use available tools to further understand and update the code.");
+    contentBlocks.push("Use shell tools to further read relevant files and update the files in place.");
 
     return {
         firstLine,
@@ -452,7 +452,7 @@ function formatTerminalContent(
 
 
     // Add further instructions
-    contentBlocks.push("Use available tools to further understand and update the code.");
+    contentBlocks.push("Use shell tools to further read relevant files and update the files in place.");
 
     return {
         firstLine,
@@ -466,7 +466,7 @@ function getWorkspacePath(): string {
 
 async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; restOfText: string }) {
     console.log('Writing to clipboard...');
-    await vscode.env.clipboard.writeText(restOfText);
+    await vscode.env.clipboard.writeText(firstLine + "\n" + restOfText);
     await sleep(100);
     console.log('Clipboard write complete');
 
@@ -483,9 +483,7 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
             tell application "${targetApp}" to activate
             delay 0.2
             tell application "System Events"
-                ${firstLine.split('').map(char => 
-                    `keystroke "${char.replace(/["']/g, '\\"')}"`
-                ).join('\n')}
+                keystroke ">"
                 delay 0.1
                 keystroke "v" using {command down}
             end tell'`, 

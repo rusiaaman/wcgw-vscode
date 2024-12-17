@@ -13,7 +13,6 @@ https://github.com/rusiaaman/wcgw.git
 
 ## How to Use
 
-Warning: this uses apple script. Make sure you don't press "Cmd" while the tool is doing its job.
 
 ### For Editor Content
 1. Select code in the editor you want to share
