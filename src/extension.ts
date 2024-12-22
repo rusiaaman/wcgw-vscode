@@ -274,7 +274,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
    function formatFullContextContent(
-        content: SelectionContent,
+        content: SelectionContent & { fullText?: string },
         workspaceStructure: string,
         relevantFiles: string,
         isTerminal: boolean = false
@@ -288,6 +288,15 @@ export function activate(context: vscode.ExtensionContext) {
             blocks.push(isTerminal ? 'Terminal selection:' : 'Selected code:');
             blocks.push('```');
             blocks.push(content.text);
+            blocks.push('```');
+            blocks.push('---');
+        }
+
+        // Include full file content in full context mode if available and different from selection
+        if (!isTerminal && content.fullText && content.text !== content.fullText) {
+            blocks.push('Full file content:');
+            blocks.push('```');
+            blocks.push(content.fullText);
             blocks.push('```');
             blocks.push('---');
         }
@@ -325,16 +334,20 @@ export function activate(context: vscode.ExtensionContext) {
     }
 }
 
-async function getEditorSelection(): Promise<SelectionContent> {
+async function getEditorSelection(): Promise<SelectionContent & { fullText?: string }> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return { text: '' };
     }
 
     const selection = editor.selection;
+    const selectedText = editor.document.getText(selection).trim();
+    const fullText = editor.document.getText().trim();
+    
     return {
-        text: editor.document.getText(selection).trim(),
-        path: editor.document.uri.fsPath
+        text: selectedText,
+        path: editor.document.uri.fsPath,
+        fullText: selectedText !== fullText ? fullText : undefined // Only include if different from selection
     };
 }
 
@@ -379,7 +392,7 @@ async function getTerminalSelection(): Promise<SelectionContent> {
 
 function formatEditorContent(
     helpfulText: string,
-    editorContent: SelectionContent,
+    editorContent: SelectionContent & { fullText?: string },
     workspacePath: string
 ): { firstLine: string; restOfText: string } {
     const helpfulLines = helpfulText.split('\n');
@@ -397,8 +410,18 @@ function formatEditorContent(
     
    // Add separator and file content
     if (editorContent.text.trim()) {
+        contentBlocks.push('Selected code:');
         contentBlocks.push('```');
         contentBlocks.push(editorContent.text);
+        contentBlocks.push('```');
+        contentBlocks.push('---');
+    }
+
+    // Add full file content if available and different from selection
+    if (editorContent.fullText && editorContent.text !== editorContent.fullText) {
+        contentBlocks.push('Full file content:');
+        contentBlocks.push('```');
+        contentBlocks.push(editorContent.fullText);
         contentBlocks.push('```');
         contentBlocks.push('---');
     }
@@ -483,6 +506,8 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
             tell application "${targetApp}" to activate
             delay 0.2
             tell application "System Events"
+                keystroke "k" using {command down}
+                delay 2
                 keystroke ">"
                 delay 0.1
                 keystroke "v" using {command down}
