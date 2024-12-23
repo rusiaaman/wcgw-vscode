@@ -292,14 +292,14 @@ export function activate(context: vscode.ExtensionContext) {
             blocks.push('---');
         }
 
-        // Include full file content in full context mode if available and different from selection
-        if (!isTerminal && content.fullText && content.text !== content.fullText) {
-            blocks.push('Full file content:');
-            blocks.push('```');
-            blocks.push(content.fullText);
-            blocks.push('```');
-            blocks.push('---');
-        }
+        // // Include full file content in full context mode if available and different from selection
+        // if (!isTerminal && content.fullText && content.text !== content.fullText) {
+        //     blocks.push('Full file content:');
+        //     blocks.push('```');
+        //     blocks.push(content.fullText);
+        //     blocks.push('```');
+        //     blocks.push('---');
+        // }
         
         // Add workspace path and file path
         const workspacePath = getWorkspacePath();
@@ -417,14 +417,14 @@ function formatEditorContent(
         contentBlocks.push('---');
     }
 
-    // Add full file content if available and different from selection
-    if (editorContent.fullText && editorContent.text !== editorContent.fullText) {
-        contentBlocks.push('Full file content:');
-        contentBlocks.push('```');
-        contentBlocks.push(editorContent.fullText);
-        contentBlocks.push('```');
-        contentBlocks.push('---');
-    }
+    // // Add full file content if available and different from selection
+    // if (editorContent.fullText && editorContent.text !== editorContent.fullText) {
+    //     contentBlocks.push('Full file content:');
+    //     contentBlocks.push('```');
+    //     contentBlocks.push(editorContent.fullText);
+    //     contentBlocks.push('```');
+    //     contentBlocks.push('---');
+    // }
 
     // Add separator and workspace info
     contentBlocks.push(`Workspace path: ${workspacePath}`);
