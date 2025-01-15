@@ -415,7 +415,7 @@ function formatEditorContent(
         contentBlocks.push('```');
         contentBlocks.push(editorContent.text);
         contentBlocks.push('```');
-        blocks.push('');
+        contentBlocks.push('');
         contentBlocks.push('---');
     }
 
