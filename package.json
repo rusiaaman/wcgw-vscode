@@ -7,7 +7,7 @@
         "type": "git",
         "url": "https://github.com/rusiaaman/wcgw-vscode"
     },
-    "version": "0.3.8",
+    "version": "0.3.9",
     "engines": {
         "vscode": "^1.85.0"
     },

@@ -286,9 +286,11 @@ export function activate(context: vscode.ExtensionContext) {
         // Only include the selected content block if there is content
         if (content.text.trim()) {
             blocks.push(isTerminal ? 'Terminal selection:' : 'Selected code:');
+            blocks.push('');
             blocks.push('```');
             blocks.push(content.text);
             blocks.push('```');
+            blocks.push('');
             blocks.push('---');
         }
 
@@ -314,8 +316,6 @@ export function activate(context: vscode.ExtensionContext) {
         blocks.push('---');
         blocks.push('Frequently asked for files:');
         blocks.push(relevantFiles); // Already formatted with file paths and content
-        blocks.push('---');
-        blocks.push("Use shell tools to further read relevant files and update the files in place.");
         
         return blocks.join('\n');
     }
@@ -411,9 +411,11 @@ function formatEditorContent(
    // Add separator and file content
     if (editorContent.text.trim()) {
         contentBlocks.push('Selected code:');
+        contentBlocks.push('');
         contentBlocks.push('```');
         contentBlocks.push(editorContent.text);
         contentBlocks.push('```');
+        blocks.push('');
         contentBlocks.push('---');
     }
 
@@ -432,11 +434,6 @@ function formatEditorContent(
       contentBlocks.push(`File path: ${editorContent.path}`);
     }
 
-    contentBlocks.push('---');
-
-
-    // Add further instructions
-    contentBlocks.push("Use shell tools to further read relevant files and update the files in place.");
 
     return {
         firstLine,
@@ -463,19 +460,16 @@ function formatTerminalContent(
     // Add separator and file content
     if (terminalContent.text.trim()) {
         contentBlocks.push('Terminal selection:');
+        contentBlocks.push('');
         contentBlocks.push('```');
         contentBlocks.push(terminalContent.text);
         contentBlocks.push('```');
+        contentBlocks.push('');
         contentBlocks.push('---');
     }
 
     // Add separator and workspace info
     contentBlocks.push(`Workspace path: ${workspacePath}`);
-    contentBlocks.push('---');
-
-
-    // Add further instructions
-    contentBlocks.push("Use shell tools to further read relevant files and update the files in place.");
 
     return {
         firstLine,
