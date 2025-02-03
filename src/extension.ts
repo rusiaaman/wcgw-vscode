@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import ignore from 'ignore';
+import * as ignore from 'ignore';
 
 interface SelectionContent {
     text: string;
@@ -158,10 +158,10 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Load and parse .gitignore
         const gitignorePath = path.join(workspaceFolder, '.gitignore');
-        let ig = ignore();
+        let ig = ignore.default();
         if (fs.existsSync(gitignorePath)) {
             const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
-            ig = ignore().add(gitignoreContent);
+            ig = ignore.default().add(gitignoreContent);
         }
 
         // Get all files
