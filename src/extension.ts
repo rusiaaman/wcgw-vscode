@@ -396,17 +396,6 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
 
-    async function execCommand(cmd: string, cwd: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            exec(cmd, { cwd }, (error: any, stdout: string) => {
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(stdout.trim());
-                }
-            });
-        });
-    }
 }
 
 async function getEditorSelection(): Promise<SelectionContent & { fullText?: string }> {
@@ -585,7 +574,7 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
                 delay 0.1
                 keystroke "v" using {command down}
             end tell'`, 
-        async (error: any) => {
+        async (error: Error | null) => {
             if (error) {
                 console.log('AppleScript error:', error);
                 // Restore clipboard even on error
@@ -660,8 +649,8 @@ async function checkAndAttachScreenSessions() {
 }
 
 async function getScreenSessions(): Promise<ScreenSession[]> {
-    return new Promise((resolve, reject) => {
-        exec('screen -ls', (error: any, stdout: string, stderr: string) => {
+    return new Promise((resolve, _reject) => {
+        exec('screen -ls', (error: Error | null, stdout: string, _stderr: string) => {
             // screen -ls returns exit code 1 when there are detached sessions, so don't treat as error
             if (error && !stdout.includes('Socket') && !stdout.includes('screen')) {
                 console.log('No screen sessions found or screen not available');
@@ -679,7 +668,7 @@ async function getScreenSessions(): Promise<ScreenSession[]> {
                 const match = trimmed.match(/^(\d+)\.wcgw\.[\d-hHmMsS]+\.([a-f0-9]{3})\.([^(]+?)\s*\(([^)]+)\)/);
                 
                 if (match) {
-                    const [fullMatch, pid, hash, basename, status] = match;
+                    const [, pid, hash, basename, status] = match;
                     const fullName = trimmed.split(/\s+/)[0]; // Get the full session name before status
                     
                     sessions.push({
