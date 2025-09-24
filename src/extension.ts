@@ -3,14 +3,48 @@ import { exec } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as ignore from 'ignore';
+import * as crypto from 'crypto';
 
 interface SelectionContent {
     text: string;
     path?: string;
 }
 
+interface ScreenSession {
+    pid: string;
+    fullName: string;
+    hash: string;
+    basename: string;
+    status: string;
+}
+
+let screenPollingInterval: NodeJS.Timer | undefined;
+const attachedScreens = new Set<string>();
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('WCGW extension is now active!');
+
+    // Start screen polling
+    startScreenPolling();
+
+    // Listen for terminal close events to clean up our tracking
+    vscode.window.onDidCloseTerminal((terminal: vscode.Terminal) => {
+        if (terminal.name.includes('WCGW Screen')) {
+            // Extract PID from terminal name and remove from tracking
+            const pidMatch = terminal.name.match(/\((\d+)\) WCGW Screen:/);
+            if (pidMatch) {
+                const pid = pidMatch[1];
+                // Find and remove the corresponding session from attachedScreens
+                for (const sessionName of attachedScreens) {
+                    if (sessionName.startsWith(pid + '.')) {
+                        attachedScreens.delete(sessionName);
+                        console.log(`Removed closed terminal session from tracking: ${sessionName}`);
+                        break;
+                    }
+                }
+            }
+        }
+    });
 
     // Register editor command
     let editorCommand = vscode.commands.registerCommand('wcgw.sendEditorToApp', async () => {
@@ -148,7 +182,48 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand, fullContextTerminalCommand);
+    // Register screen attachment command
+    let screenCommand = vscode.commands.registerCommand('wcgw.checkScreenSessions', async () => {
+        console.log('WCGW check screen sessions command triggered');
+        try {
+            await checkAndAttachScreenSessions();
+            vscode.window.showInformationMessage('Checked for WCGW screen sessions');
+        } catch (error: unknown) {
+            console.error('Error in checkScreenSessions:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Failed to check screen sessions: ${errorMessage}`);
+        }
+    });
+
+    // Register toggle screen polling command
+    let togglePollingCommand = vscode.commands.registerCommand('wcgw.toggleScreenPolling', async () => {
+        const config = vscode.workspace.getConfiguration('wcgw');
+        const currentState = config.get<boolean>('screenPollingEnabled', true);
+        
+        await config.update('screenPollingEnabled', !currentState, vscode.ConfigurationTarget.Global);
+        
+        if (!currentState) {
+            startScreenPolling();
+            vscode.window.showInformationMessage('WCGW screen polling enabled');
+        } else {
+            if (screenPollingInterval) {
+                clearInterval(screenPollingInterval);
+                screenPollingInterval = undefined;
+            }
+            vscode.window.showInformationMessage('WCGW screen polling disabled');
+        }
+    });
+
+    context.subscriptions.push(editorCommand, terminalCommand, fullContextCommand, fullContextTerminalCommand, screenCommand, togglePollingCommand);
+
+    // Clean up polling on deactivation
+    context.subscriptions.push({
+        dispose: () => {
+            if (screenPollingInterval) {
+                clearInterval(screenPollingInterval);
+            }
+        }
+    });
 
     async function getWorkspaceStructure(): Promise<string> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -323,7 +398,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     async function execCommand(cmd: string, cwd: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            exec(cmd, { cwd }, (error, stdout) => {
+            exec(cmd, { cwd }, (error: any, stdout: string) => {
                 if (error) {
                     reject(error);
                 } else {
@@ -506,7 +581,7 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
                 delay 0.1
                 keystroke "v" using {command down}
             end tell'`, 
-        (error) => {
+        (error: any) => {
             if (error) {
                 console.log('AppleScript error:', error);
                 reject(new Error(`Failed to paste in ${targetApp}: ${error.message}`));
@@ -522,4 +597,137 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function deactivate() {}
+function startScreenPolling() {
+    const config = vscode.workspace.getConfiguration('wcgw');
+    const pollingEnabled = config.get<boolean>('screenPollingEnabled', true);
+    const pollingInterval = config.get<number>('screenPollingInterval', 5000);
+
+    if (!pollingEnabled) {
+        console.log('Screen polling is disabled');
+        return;
+    }
+
+    // Poll for new screen sessions
+    screenPollingInterval = setInterval(async () => {
+        try {
+            await checkAndAttachScreenSessions();
+        } catch (error) {
+            console.error('Error in screen polling:', error);
+        }
+    }, pollingInterval);
+
+    // Also check immediately
+    checkAndAttachScreenSessions().catch(error => {
+        console.error('Error in initial screen check:', error);
+    });
+
+    console.log(`Started screen polling with interval: ${pollingInterval}ms`);
+}
+
+async function checkAndAttachScreenSessions() {
+    const workspacePath = getWorkspacePath();
+    if (!workspacePath) {
+        return;
+    }
+
+    const screenSessions = await getScreenSessions();
+    const matchingSessions = getMatchingScreenSessions(screenSessions, workspacePath);
+
+    for (const session of matchingSessions) {
+        if (!attachedScreens.has(session.fullName) && !isScreenAlreadyAttached(session.fullName)) {
+            await attachToScreenSession(session);
+            attachedScreens.add(session.fullName);
+        }
+    }
+}
+
+async function getScreenSessions(): Promise<ScreenSession[]> {
+    return new Promise((resolve, reject) => {
+        exec('screen -ls', (error: any, stdout: string, stderr: string) => {
+            // screen -ls returns exit code 1 when there are detached sessions, so don't treat as error
+            if (error && !stdout.includes('Socket') && !stdout.includes('screen')) {
+                console.log('No screen sessions found or screen not available');
+                resolve([]);
+                return;
+            }
+
+            const sessions: ScreenSession[] = [];
+            const lines = stdout.split('\n');
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                // Match pattern like: 555.wcgw.24-15h06m22s.be7.claude_playground (Attached)
+                // More flexible regex to handle various formats
+                const match = trimmed.match(/^(\d+)\.wcgw\.[\d-hHmMsS]+\.([a-f0-9]{3})\.([^(]+?)\s*\(([^)]+)\)/);
+                
+                if (match) {
+                    const [fullMatch, pid, hash, basename, status] = match;
+                    const fullName = trimmed.split(/\s+/)[0]; // Get the full session name before status
+                    
+                    sessions.push({
+                        pid,
+                        fullName,
+                        hash,
+                        basename: basename.trim(),
+                        status: status.trim()
+                    });
+                    
+                    console.log(`Found WCGW screen session: ${fullName} (${status})`);
+                }
+            }
+
+            resolve(sessions);
+        });
+    });
+}
+
+function getMatchingScreenSessions(sessions: ScreenSession[], workspacePath: string): ScreenSession[] {
+    const normalizedWorkspacePath = path.normalize(path.resolve(workspacePath));
+    const workspaceBasename = path.basename(normalizedWorkspacePath);
+    const workspaceHash = crypto.createHash('md5')
+        .update(normalizedWorkspacePath)
+        .digest('hex')
+        .substring(0, 3);
+
+    return sessions.filter(session => {
+        return session.hash === workspaceHash && session.basename === workspaceBasename;
+    });
+}
+
+function isScreenAlreadyAttached(sessionName: string): boolean {
+    // Check if we already have a terminal with this exact screen session
+    const terminals = vscode.window.terminals;
+    return terminals.some((terminal: vscode.Terminal) => 
+        terminal.name.includes('WCGW Screen') && 
+        terminal.name.includes(sessionName) // Check for the full session name
+    );
+}
+
+async function attachToScreenSession(session: ScreenSession) {
+    try {
+        // Put PID first, then WCGW Screen, then basename
+        const terminalName = `(${session.pid}) WCGW Screen: ${session.basename}`;
+        
+        const terminal = vscode.window.createTerminal({
+            name: terminalName,
+            iconPath: new vscode.ThemeIcon('device-desktop'), // Screen/desktop icon
+            shellPath: '/usr/bin/screen',
+            shellArgs: ['-x', session.fullName]
+        });
+
+        terminal.show(false); // Show but don't focus
+        
+        console.log(`Attached to screen session: ${session.fullName}`);
+        vscode.window.showInformationMessage(`Attached to WCGW screen session: (${session.pid}) ${session.basename}`);
+        
+    } catch (error) {
+        console.error(`Failed to attach to screen session ${session.fullName}:`, error);
+        vscode.window.showErrorMessage(`Failed to attach to screen session: ${session.basename}`);
+    }
+}
+
+export function deactivate() {
+    if (screenPollingInterval) {
+        clearInterval(screenPollingInterval);
+    }
+}

@@ -7,8 +7,8 @@
             "request": "launch",
             "args": [
                 "--disable-extensions",
-                "--extensionDevelopmentPath=/Users/arusia/workspace-111",
-                "${workspaceFolder}"  // Add this line
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "/Users/arusia/repos/vscode-assistant" 
             ],
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"

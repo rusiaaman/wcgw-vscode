@@ -7,7 +7,7 @@
         "type": "git",
         "url": "https://github.com/rusiaaman/wcgw-vscode"
     },
-    "version": "0.3.11",
+    "version": "0.4.0",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -15,7 +15,8 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:wcgw.sendToApp"
+        "onCommand:wcgw.sendToApp",
+        "onStartupFinished"
     ],
     "main": "./out/extension.js",
     "contributes": {
@@ -35,6 +36,14 @@
             {
                 "command": "wcgw.copyWithFullContextTerminal",
                 "title": "WCGW: Copy Terminal Selection with Full Context"
+            },
+            {
+                "command": "wcgw.checkScreenSessions",
+                "title": "WCGW: Check and Attach to Screen Sessions"
+            },
+            {
+                "command": "wcgw.toggleScreenPolling",
+                "title": "WCGW: Toggle Screen Session Polling"
             }
         ],
         "configuration": {
@@ -44,6 +53,16 @@
                     "type": "string",
                     "default": "Claude",
                     "description": "Target application to send the code snippet to"
+                },
+                "wcgw.screenPollingEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable automatic polling for WCGW screen sessions"
+                },
+                "wcgw.screenPollingInterval": {
+                    "type": "number",
+                    "default": 5000,
+                    "description": "Interval in milliseconds for checking screen sessions"
                 }
             }
         },

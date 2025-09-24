@@ -10,6 +10,9 @@ https://github.com/rusiaaman/wcgw.git
 - Share terminal output with context
 - Add helpful instructions or descriptions for each share
 - Works with editor or terminal selections
+- **NEW**: Automatic detection and attachment to WCGW screen sessions
+- **NEW**: Polling mechanism to automatically connect to matching screen sessions
+- **NEW**: Custom terminal icons to distinguish WCGW screen terminals
 
 ## How to Use
 
@@ -38,6 +41,19 @@ https://github.com/rusiaaman/wcgw.git
 5. Press `Cmd+Shift+'` to copy terminal output with additional context:
    - Repository structure
    - Frequently relevant files (e.g., package.json, pyproject.toml, Readme.md, etc., listing at least 20 such files)
+
+### For WCGW Screen Sessions
+The extension automatically detects and attaches to WCGW screen sessions that match your current workspace:
+
+1. **Automatic Detection**: The extension polls every 5 seconds for new screen sessions
+2. **Workspace Matching**: Only attaches to sessions where the hash and basename match your current workspace
+3. **Visual Distinction**: WCGW screen terminals show with a desktop icon and "WCGW Screen: [basename]" name
+4. **Manual Commands**: 
+   - Run "WCGW: Check and Attach to Screen Sessions" to manually check
+   - Run "WCGW: Toggle Screen Session Polling" to enable/disable automatic polling
+
+**Screen Session Format**: Sessions must follow the pattern `PID.wcgw.TIMESTAMP.HASH.BASENAME`
+- Example: `555.wcgw.24-15h06m22s.be7.claude_playground`
 
 
 ## Example Output
@@ -75,6 +91,8 @@ Terminal output:
 This extension contributes the following settings:
 
 * `wcgw.targetApplication`: Name of the application to send code to (default: "Claude")
+* `wcgw.screenPollingEnabled`: Enable automatic polling for WCGW screen sessions (default: true)
+* `wcgw.screenPollingInterval`: Interval in milliseconds for checking screen sessions (default: 5000)
 
 ## Requirements
 
@@ -86,6 +104,15 @@ This extension contributes the following settings:
 - macOS only currently
 
 ## Release Notes
+
+### 0.4.0
+
+Added WCGW screen session integration:
+- Automatic detection and attachment to matching screen sessions
+- Polling mechanism with configurable intervals
+- Custom terminal icons for WCGW screen sessions
+- Manual commands for checking and toggling screen polling
+- Workspace-based session matching using hash and basename
 
 ### 0.1.0
 
