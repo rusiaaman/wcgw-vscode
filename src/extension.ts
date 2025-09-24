@@ -557,6 +557,9 @@ function getWorkspacePath(): string {
 }
 
 async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; restOfText: string }) {
+    console.log('Saving original clipboard content...');
+    const originalClipboard = await vscode.env.clipboard.readText();
+    
     console.log('Writing to clipboard...');
     await vscode.env.clipboard.writeText(firstLine + "\n" + restOfText);
     await sleep(100);
@@ -577,16 +580,31 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
             tell application "System Events"
                 keystroke "k" using {command down}
                 delay 2
-                keystroke ">"
+                keystroke space
+                key code 51 using {command down}
                 delay 0.1
                 keystroke "v" using {command down}
             end tell'`, 
-        (error: any) => {
+        async (error: any) => {
             if (error) {
                 console.log('AppleScript error:', error);
+                // Restore clipboard even on error
+                try {
+                    await vscode.env.clipboard.writeText(originalClipboard);
+                    console.log('Original clipboard content restored after error');
+                } catch (restoreError) {
+                    console.log('Failed to restore clipboard after error:', restoreError);
+                }
                 reject(new Error(`Failed to paste in ${targetApp}: ${error.message}`));
             } else {
                 console.log('Text entry completed successfully');
+                // Restore original clipboard content
+                try {
+                    await vscode.env.clipboard.writeText(originalClipboard);
+                    console.log('Original clipboard content restored');
+                } catch (restoreError) {
+                    console.log('Failed to restore clipboard:', restoreError);
+                }
                 resolve();
             }
         });
@@ -600,7 +618,7 @@ function sleep(ms: number): Promise<void> {
 function startScreenPolling() {
     const config = vscode.workspace.getConfiguration('wcgw');
     const pollingEnabled = config.get<boolean>('screenPollingEnabled', true);
-    const pollingInterval = config.get<number>('screenPollingInterval', 5000);
+    const pollingInterval = config.get<number>('screenPollingInterval', 1000);
 
     if (!pollingEnabled) {
         console.log('Screen polling is disabled');
