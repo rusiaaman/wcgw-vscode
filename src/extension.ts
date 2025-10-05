@@ -366,11 +366,11 @@ export function activate(context: vscode.ExtensionContext) {
         // Only include the selected content block if there is content
         if (content.text.trim()) {
             blocks.push(isTerminal ? 'Terminal selection:' : 'Selected code:');
-            blocks.push('');
+            blocks.push('\n');
             blocks.push('```');
             blocks.push(content.text);
             blocks.push('```');
-            blocks.push('');
+            blocks.push('\n');
             blocks.push('---');
         }
 
@@ -480,11 +480,11 @@ function formatEditorContent(
    // Add separator and file content
     if (editorContent.text.trim()) {
         contentBlocks.push('Selected code:');
-        contentBlocks.push('');
+        contentBlocks.push('\n');
         contentBlocks.push('```');
         contentBlocks.push(editorContent.text);
         contentBlocks.push('```');
-        contentBlocks.push('');
+        contentBlocks.push('\n');
         contentBlocks.push('---');
     }
 
@@ -529,11 +529,11 @@ function formatTerminalContent(
     // Add separator and file content
     if (terminalContent.text.trim()) {
         contentBlocks.push('Terminal selection:');
-        contentBlocks.push('');
+        contentBlocks.push('\n');
         contentBlocks.push('```');
         contentBlocks.push(terminalContent.text);
         contentBlocks.push('```');
-        contentBlocks.push('');
+        contentBlocks.push('\n');
         contentBlocks.push('---');
     }
 
@@ -570,14 +570,15 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
     return new Promise<void>((resolve, reject) => {
         exec(`osascript -e '
             tell application "${targetApp}" to activate
-            delay 0.2
+            delay 2
             tell application "System Events"
                 keystroke "k" using {command down}
-                delay 2
+                delay 0.2
                 keystroke space
                 key code 51 using {command down}
                 delay 0.1
                 keystroke "v" using {command down}
+                delay 0.1
             end tell'`, 
         async (error: Error | null) => {
             if (error) {
