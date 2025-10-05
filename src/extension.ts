@@ -29,19 +29,24 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Listen for terminal close events to clean up our tracking
     vscode.window.onDidCloseTerminal((terminal: vscode.Terminal) => {
+        // console.log(`WCGW: Terminal closed: "${terminal.name}"`);
         if (terminal.name.includes('WCGW Screen')) {
             // Extract PID from terminal name and remove from tracking
             const pidMatch = terminal.name.match(/\((\d+)\) WCGW Screen:/);
+            // console.log(`WCGW: PID match result: ${pidMatch ? pidMatch[1] : 'no match'}`);
             if (pidMatch) {
                 const pid = pidMatch[1];
+                // console.log(`WCGW: Looking for sessions starting with "${pid}." in attachedScreens`);
+                // console.log(`WCGW: Current attachedScreens: [${Array.from(attachedScreens).join(', ')}]`);
                 // Find and remove the corresponding session from attachedScreens
                 for (const sessionName of attachedScreens) {
                     if (sessionName.startsWith(pid + '.')) {
                         attachedScreens.delete(sessionName);
-                        console.log(`Removed closed terminal session from tracking: ${sessionName}`);
+                        console.log(`WCGW: Removed closed terminal session from tracking: ${sessionName}`);
                         break;
                     }
                 }
+                // console.log(`WCGW: attachedScreens after cleanup: [${Array.from(attachedScreens).join(', ')}]`);
             }
         }
     });
@@ -638,14 +643,23 @@ async function checkAndAttachScreenSessions() {
     }
 
     const screenSessions = await getScreenSessions();
+    
     const matchingSessions = getMatchingScreenSessions(screenSessions, workspacePath);
 
     for (const session of matchingSessions) {
-        if (!attachedScreens.has(session.fullName) && !isScreenAlreadyAttached(session.fullName)) {
+        const inAttachedSet = attachedScreens.has(session.fullName);
+        const alreadyAttached = isScreenAlreadyAttached(session.fullName);
+        
+        
+        if (!inAttachedSet && !alreadyAttached) {
             await attachToScreenSession(session);
             attachedScreens.add(session.fullName);
+        } else {
+            console.log(`  - Skipping attachment (already tracked or attached)`);
         }
     }
+    
+    // console.log(`WCGW: Current attachedScreens set contains: [${Array.from(attachedScreens).join(', ')}]`);
 }
 
 async function getScreenSessions(): Promise<ScreenSession[]> {
@@ -696,24 +710,46 @@ function getMatchingScreenSessions(sessions: ScreenSession[], workspacePath: str
         .digest('hex')
         .substring(0, 3);
 
-    return sessions.filter(session => {
-        return session.hash === workspaceHash && session.basename === workspaceBasename;
+    // console.log(`WCGW: Matching criteria - basename: "${workspaceBasename}", hash: "${workspaceHash}"`);
+    // console.log(`WCGW: Normalized workspace path: "${normalizedWorkspacePath}"`);
+
+    const matchingSessions = sessions.filter(session => {
+        const hashMatch = session.hash === workspaceHash;
+        const basenameMatch = session.basename === workspaceBasename;
+        // console.log(`WCGW: Session ${session.fullName} - hash match: ${hashMatch} (${session.hash} vs ${workspaceHash}), basename match: ${basenameMatch} (${session.basename} vs ${workspaceBasename})`);
+        return hashMatch && basenameMatch;
     });
+
+    // console.log(`WCGW: Found ${matchingSessions.length} matching sessions out of ${sessions.length} total`);
+    return matchingSessions;
 }
 
 function isScreenAlreadyAttached(sessionName: string): boolean {
-    // Check if we already have a terminal with this exact screen session
+    // Extract PID from session name (e.g., "555.wcgw..." -> "555")
+    const pid = sessionName.split('.')[0];
+    // console.log(`WCGW: Checking if session ${sessionName} (PID: ${pid}) is already attached`);
+    
+    // Check if we already have a terminal with this screen session's PID
     const terminals = vscode.window.terminals;
-    return terminals.some((terminal: vscode.Terminal) => 
-        terminal.name.includes('WCGW Screen') && 
-        terminal.name.includes(sessionName) // Check for the full session name
-    );
+    // console.log(`WCGW: Current terminals: [${terminals.map(t => t.name).join(', ')}]`);
+    
+    const isAttached = terminals.some((terminal: vscode.Terminal) => {
+        const hasWCGWScreen = terminal.name.includes('WCGW Screen');
+        const hasPID = terminal.name.includes(`(${pid})`);
+        // console.log(`WCGW: Terminal "${terminal.name}" - hasWCGWScreen: ${hasWCGWScreen}, hasPID: ${hasPID}`);
+        return hasWCGWScreen && hasPID;
+    });
+    
+    // console.log(`WCGW: Session ${sessionName} already attached: ${isAttached}`);
+    return isAttached;
 }
 
 async function attachToScreenSession(session: ScreenSession) {
     try {
         // Put PID first, then WCGW Screen, then basename
         const terminalName = `(${session.pid}) WCGW Screen: ${session.basename}`;
+        // console.log(`WCGW: Creating terminal with name: "${terminalName}"`);
+        // console.log(`WCGW: Screen command: screen -x ${session.fullName}`);
         
         const terminal = vscode.window.createTerminal({
             name: terminalName,
@@ -724,11 +760,11 @@ async function attachToScreenSession(session: ScreenSession) {
 
         terminal.show(false); // Show but don't focus
         
-        console.log(`Attached to screen session: ${session.fullName}`);
+        // console.log(`WCGW: Successfully attached to screen session: ${session.fullName}`);
         vscode.window.showInformationMessage(`Attached to WCGW screen session: (${session.pid}) ${session.basename}`);
         
     } catch (error) {
-        console.error(`Failed to attach to screen session ${session.fullName}:`, error);
+        console.error(`WCGW: Failed to attach to screen session ${session.fullName}:`, error);
         vscode.window.showErrorMessage(`Failed to attach to screen session: ${session.basename}`);
     }
 }
