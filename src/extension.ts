@@ -573,8 +573,9 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
             delay 2
             tell application "System Events"
                 keystroke "k" using {command down}
-                delay 0.2
+                delay 0.5
                 keystroke space
+                delay 0.1
                 key code 51 using {command down}
                 delay 0.1
                 keystroke "v" using {command down}
@@ -583,23 +584,9 @@ async function copyToTargetApp({ firstLine, restOfText }: { firstLine: string; r
         async (error: Error | null) => {
             if (error) {
                 console.log('AppleScript error:', error);
-                // Restore clipboard even on error
-                try {
-                    await vscode.env.clipboard.writeText(originalClipboard);
-                    console.log('Original clipboard content restored after error');
-                } catch (restoreError) {
-                    console.log('Failed to restore clipboard after error:', restoreError);
-                }
                 reject(new Error(`Failed to paste in ${targetApp}: ${error.message}`));
             } else {
                 console.log('Text entry completed successfully');
-                // Restore original clipboard content
-                try {
-                    await vscode.env.clipboard.writeText(originalClipboard);
-                    console.log('Original clipboard content restored');
-                } catch (restoreError) {
-                    console.log('Failed to restore clipboard:', restoreError);
-                }
                 resolve();
             }
         });
