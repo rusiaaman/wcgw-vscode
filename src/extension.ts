@@ -642,8 +642,6 @@ async function checkAndAttachScreenSessions() {
         if (!inAttachedSet && !alreadyAttached) {
             await attachToScreenSession(session);
             attachedScreens.add(session.fullName);
-        } else {
-            console.log(`  - Skipping attachment (already tracked or attached)`);
         }
     }
     
@@ -655,7 +653,6 @@ async function getScreenSessions(): Promise<ScreenSession[]> {
         exec('screen -ls', (error: Error | null, stdout: string, _stderr: string) => {
             // screen -ls returns exit code 1 when there are detached sessions, so don't treat as error
             if (error && !stdout.includes('Socket') && !stdout.includes('screen')) {
-                console.log('No screen sessions found or screen not available');
                 resolve([]);
                 return;
             }
@@ -681,7 +678,6 @@ async function getScreenSessions(): Promise<ScreenSession[]> {
                         status: status.trim()
                     });
                     
-                    console.log(`Found WCGW screen session: ${fullName} (${status})`);
                 }
             }
 
